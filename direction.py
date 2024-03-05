@@ -55,18 +55,55 @@ while(True):
         valid_contour.append({'cont':contour, 'arc_len':arc_len})
         
     
-    print('cont cnt: ', len(valid_contour))
+    print('valid cont cnt: ', len(valid_contour))
 
     poly_img = frame.copy()
     for cont in valid_contour:
-        approx = cv2.approxPolyDP(cont['cont'], 8, True)
+        approx = cv2.approxPolyDP(cont['cont'], 10, True)
         cv2.polylines(poly_img, [approx], True, (0, 0, 255), 2)
         hull = cv2.convexHull(approx)
         cv2.polylines(poly_img, [hull], True, (0, 255, 0), 2)
-        #print(hull)
-        print("line cnt approx/hull: ", len(approx), len(hull))
-        #cv2.imshow("poly", poly_img)
-        #cv2.waitKey(0)
+
+        print("point cnt approx/hull: ", len(approx), len(hull))
+
+        if len(hull) >= 6 and len(approx) >= 8:
+            pos_slope = 0
+            neg_slope = 0
+            last_point = np.array(hull[-1][0])
+            for point in hull:
+                point = np.array(point[0])
+                delta = point - last_point
+                tol = 10
+                if abs(delta[0]) < tol or abs(delta[1]) < tol:
+                    pass
+                else:
+                    slope = delta[1] / delta[0]
+                    if slope > 0:
+                        pos_slope += 1
+                    else:
+                        neg_slope += 1
+                print(delta)
+                cv2.circle(poly_img, (point[0], point[1]), radius=5, color=(0, 255, 255), thickness=3)
+                cv2.imshow("poly", poly_img)
+                #cv2.waitKey(0)
+                last_point = point
+            print("slope pos/neg cnt: ", pos_slope, neg_slope)
+            M = cv2.moments(hull)
+            if M["m00"] != 0:#由於除數不能為0所以一定要先設判斷式才不會出錯
+                cx = int(M["m10"] / M["m00"])#找出中心的x座標
+                cy = int(M["m01"] / M["m00"])#找出中心的y座標
+            if(pos_slope < neg_slope):
+                print("right")
+                cv2.putText(poly_img, "right", (cx, cy), cv2.FONT_HERSHEY_SIMPLEX , 1, (255, 0, 255), 2, cv2.LINE_AA)
+            elif(pos_slope > neg_slope):
+                print("left")
+                cv2.putText(poly_img, "left", (cx, cy), cv2.FONT_HERSHEY_SIMPLEX , 1, (255, 0, 255), 2, cv2.LINE_AA)
+            else:
+                print("unknown")
+            #print(hull)
+            #cv2.imshow("poly", poly_img)
+            #cv2.waitKey(0)
+
     cv2.imshow("poly", poly_img)
 
     key = cv2.waitKey(100) & 0xFF

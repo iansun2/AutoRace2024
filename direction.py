@@ -2,7 +2,14 @@ import cv2
 import numpy as np
 import time
 
-cap = cv2.VideoCapture(2+cv2.CAP_DSHOW)
+#cap = cv2.VideoCapture(2+cv2.CAP_DSHOW)
+cap = cv2.VideoCapture("/dev/video0")
+if not cap.isOpened():
+	print("camera err")
+	exit()
+cap.set(3,5000)
+cap.set(4,5000)
+cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
 
 
 low_mask = np.array([92, 155, 73])
@@ -29,9 +36,9 @@ while(True):
     print("raw cont: ", len(contours))
     
     #img = cv2.cvtColor(hsv, cv2.COLOR_HSV2GRAY)
-    cv2.imshow("test1", canny_img)
-    cv2.imshow("test1.5", dilate_img)
-    cv2.imshow("test2", erode_img)
+    #cv2.imshow("test1", canny_img)
+    #cv2.imshow("test1.5", dilate_img)
+    #cv2.imshow("test2", erode_img)
 
     valid_contour = []
 

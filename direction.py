@@ -2,26 +2,15 @@ import cv2
 import numpy as np
 import time
 
-
-car_test = True
-if car_test:
-    cap = cv2.VideoCapture("/dev/video0")
-    if not cap.isOpened():
-        print("camera err")
-        exit()
-    cap.set(3,5000)
-    cap.set(4,5000)
-    cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
-else:
-    cap = cv2.VideoCapture(2+cv2.CAP_DSHOW)
+orignal_img = cv2.Mat
+post_img = cv2.Mat
 
 
 
 low_mask = np.array([92, 100, 73])
 high_mask = np.array([163, 255, 255])
 
-
-while(True):
+def frame_preprocess() -> cv2.Mat:
     ret, frame = cap.read()
     frame = cv2.resize(frame, (500, 500), interpolation=cv2.INTER_AREA)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -37,40 +26,33 @@ while(True):
     erode_img = cv2.erode(dilate_img, kernel, iterations=1)
     #gradient_img = cv2.morphologyEx(canny_img, cv2.MORPH_GRADIENT, kernel)
     #gradient_img = cv2.morphologyEx(canny_img, cv2.MORPH_CLOSE, kernel)
-    contours, hierarchy_all = cv2.findContours(erode_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-    print(hierarchy_all[0])
-    print("raw count: ", len(hierarchy_all[0]))
+    return frame, erode_img
+    
 
-    hierarchy_all = hierarchy_all[0]
+
+def filt_by_tree(contours, hierarchy) -> np.array:
+    hierarchy = hierarchy[0]
+    contours = np.array(contours, dtype=object)
+    #print("file in", hierarchy)
     del_list = []
-    for idx in range(len(hierarchy_all)):
-        hierarchy = hierarchy_all[idx]
-        if hierarchy[2] == -1 and hierarchy[3] == -1:
+    for idx in range(len(hierarchy)):
+        hierarchy_ele = hierarchy[idx]
+        if hierarchy_ele[3] == -1:
             del_list.append(idx)
 
     #print(del_list)
-    hierarchy_all = np.delete(hierarchy_all, del_list, 0)
-    contours = np.delete(contours, del_list, 0)
-    
-    #print(contours)
-    print(hierarchy_all)
-    print("filt cont: ", len(hierarchy_all))
-    
-    
-    #img = cv2.cvtColor(hsv, cv2.COLOR_HSV2GRAY)
-    cv2.imshow("raw", frame)
-    #cv2.imshow("test0.5", blur_img)
-    #cv2.imshow("test1", canny_img)
-    #cv2.imshow("test1.5", dilate_img)
-    #cv2.imshow("test2", erode_img)
+    hierarchy_filted = np.delete(hierarchy, del_list, 0)
+    contours_filted = np.delete(contours, del_list, 0)
+    return contours_filted, hierarchy_filted
 
+
+
+def filt_by_arc_length(contours) -> list:
     valid_obj = []
 
     for contour in contours:
         #contours_img = cv2.drawContours(frame.copy(), contour, -1, (0, 255, 0), 2) 
         #cv2.imshow("contours", contours_img)
-        #area = cv2.contourArea(contour)
-        #print(area)
         arc_len = cv2.arcLength(contour, True)
         #print("arc len: ", arc_len)
         #cv2.waitKey(0)
@@ -84,33 +66,71 @@ while(True):
         if not valid:
             continue
         valid_obj.append({'cont':contour, 'arc_len':arc_len})
-        
-    print('valid cont cnt: ', len(valid_obj))
-        
+    return valid_obj
+
+
+
+def select_smallest(obj) -> dict:
     smallest_obj = None
-    contours_img = frame.copy()
+    contours_img = orignal_img.copy()
     for obj in valid_obj:
         cv2.drawContours(contours_img, obj['cont'], -1, (0, 255, 0), 2) 
         cv2.imshow("contours", contours_img)
-        cv2.waitKey(0)
+        #cv2.waitKey(0)
         if smallest_obj == None:
             smallest_obj = obj
         elif smallest_obj['arc_len'] > obj['arc_len']:
             smallest_obj = obj
-    #cv2.imshow("contours", contours_img)
+    return smallest_obj
 
-    poly_img = frame.copy()
+
+#### main start ####
+
+car_test = False
+if car_test:
+    cap = cv2.VideoCapture("/dev/video0")
+    if not cap.isOpened():
+        print("camera err")
+        exit()
+    cap.set(3,5000)
+    cap.set(4,5000)
+    cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
+else:
+    cap = cv2.VideoCapture(2+cv2.CAP_DSHOW)
+
+
+while(True):
+    orignal_img, post_img = frame_preprocess()
+
+    contours, hierarchy = cv2.findContours(post_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    print("raw count: ", len(hierarchy[0]))
+    contours, hierarchy = filt_by_tree(contours, hierarchy)
+    print("filt cont: ", len(hierarchy))
+    
+    #img = cv2.cvtColor(hsv, cv2.COLOR_HSV2GRAY)
+    #cv2.imshow("orignal", orignal_img)
+    #cv2.imshow("test0.5", blur_img)
+    #cv2.imshow("test1", canny_img)
+    #cv2.imshow("test1.5", dilate_img)
+    #cv2.imshow("post", post_img)
+
+    valid_obj = filt_by_arc_length(contours)
+    print('valid cont cnt: ', len(valid_obj))
+        
+    smallest_obj = select_smallest(valid_obj)
+    valid_obj = [smallest_obj] 
+
+    poly_img = orignal_img.copy()
     for cont in valid_obj:
         approx = cv2.approxPolyDP(cont['cont'], 10, True)
         cv2.polylines(poly_img, [approx], True, (0, 0, 255), 2)
         hull = cv2.convexHull(approx)
-        ##hull = cv2.convexHull(approx, returnPoints=False)
         print("approx: ", approx, "\nhull: ", hull)
         cv2.polylines(poly_img, [hull], True, (0, 255, 0), 2)
 
         print("point cnt approx/hull: ", len(approx), len(hull))
 
-        if len(hull) >= 6 and len(approx) >= 8:
+        if len(hull) >= 4 and len(approx) >= 6:
             highest = np.array([0, 10000])
             lowest = np.array([0, -10000])
             leftest = np.array([10000, 0])
@@ -159,7 +179,7 @@ while(True):
             # else:
             #     print("unknown")
 
-    #cv2.imshow("poly", poly_img)
+    cv2.imshow("poly", poly_img)
 
     key = cv2.waitKey(100) & 0xFF
     if key == ord('q'):

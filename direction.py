@@ -7,7 +7,7 @@ post_img = cv2.Mat
 
 
 
-low_mask = np.array([92, 100, 73])
+low_mask = np.array([92, 100, 180])
 high_mask = np.array([163, 255, 255])
 
 def frame_preprocess() -> cv2.Mat:
@@ -48,7 +48,7 @@ def filt_by_tree(contours, hierarchy) -> np.array:
 
 
 def filt_by_arc_length(contours) -> list:
-    valid_obj = []
+    valid_objs = []
 
     for contour in contours:
         #contours_img = cv2.drawContours(frame.copy(), contour, -1, (0, 255, 0), 2) 
@@ -59,14 +59,14 @@ def filt_by_arc_length(contours) -> list:
         if arc_len < 100:
             continue
         valid = True
-        for exist_obj in valid_obj:
+        for exist_obj in valid_objs:
             if abs(arc_len - exist_obj['arc_len']) < 30:
                 valid = False
                 break
         if not valid:
             continue
-        valid_obj.append({'cont':contour, 'arc_len':arc_len})
-    return valid_obj
+        valid_objs.append({'cont':contour, 'arc_len':arc_len})
+    return valid_objs
 
 
 
@@ -74,8 +74,6 @@ def select_smallest(obj) -> dict:
     smallest_obj = None
     contours_img = orignal_img.copy()
     for obj in valid_obj:
-        cv2.drawContours(contours_img, obj['cont'], -1, (0, 255, 0), 2) 
-        cv2.imshow("contours", contours_img)
         #cv2.waitKey(0)
         if smallest_obj == None:
             smallest_obj = obj
@@ -84,9 +82,30 @@ def select_smallest(obj) -> dict:
     return smallest_obj
 
 
+
+def filt_by_points(obj_list, poly_img) -> list:
+    valid_obj = []
+    for obj in obj_list:
+        approx = cv2.approxPolyDP(obj['cont'], 10, True)
+        cv2.polylines(poly_img, [approx], True, (0, 0, 255), 2)
+        hull = cv2.convexHull(approx)
+        cv2.polylines(poly_img, [hull], True, (0, 255, 0), 2)
+        #print("approx: ", approx, "\nhull: ", hull)
+        obj['approx'] = approx
+        obj['hull'] = hull
+
+        print("point cnt approx/hull: ", len(approx), len(hull))
+
+        if len(approx) >= 5 and len(hull) >= 4:
+            valid_obj.append(obj)
+    return valid_obj
+
+
+
+
 #### main start ####
 
-car_test = False
+car_test = True
 if car_test:
     cap = cv2.VideoCapture("/dev/video0")
     if not cap.isOpened():
@@ -102,11 +121,13 @@ else:
 while(True):
     orignal_img, post_img = frame_preprocess()
 
+
     contours, hierarchy = cv2.findContours(post_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     print("raw count: ", len(hierarchy[0]))
     contours, hierarchy = filt_by_tree(contours, hierarchy)
-    print("filt cont: ", len(hierarchy))
+    print("tree valid: ", len(hierarchy))
     
+
     #img = cv2.cvtColor(hsv, cv2.COLOR_HSV2GRAY)
     #cv2.imshow("orignal", orignal_img)
     #cv2.imshow("test0.5", blur_img)
@@ -114,74 +135,67 @@ while(True):
     #cv2.imshow("test1.5", dilate_img)
     #cv2.imshow("post", post_img)
 
+
     valid_obj = filt_by_arc_length(contours)
-    print('valid cont cnt: ', len(valid_obj))
-        
-    smallest_obj = select_smallest(valid_obj)
-    valid_obj = [smallest_obj] 
+    print('arc length valid: ', len(valid_obj))
+
 
     poly_img = orignal_img.copy()
-    for cont in valid_obj:
-        approx = cv2.approxPolyDP(cont['cont'], 10, True)
-        cv2.polylines(poly_img, [approx], True, (0, 0, 255), 2)
-        hull = cv2.convexHull(approx)
-        print("approx: ", approx, "\nhull: ", hull)
-        cv2.polylines(poly_img, [hull], True, (0, 255, 0), 2)
 
-        print("point cnt approx/hull: ", len(approx), len(hull))
+    valid_obj = filt_by_points(valid_obj, poly_img)
+    print('point count valid: ', len(valid_obj))
 
-        if len(hull) >= 4 and len(approx) >= 6:
-            highest = np.array([0, 10000])
-            lowest = np.array([0, -10000])
-            leftest = np.array([10000, 0])
-            rightest = np.array([-10000, 0])
-            for point in hull:
-                #print("tp:", point)
-                point = np.array(point[0])
-                if point[1] < highest[1]:
-                    highest = point
-                elif  point[1] > lowest[1]:
-                    lowest = point
-
-                if point[0] < leftest[0]:
-                    leftest = point
-                elif point[0] > rightest[0]:
-                    rightest = point
-
-                cv2.circle(poly_img, (point[0], point[1]), radius=3, color=(0, 255, 255), thickness=3)
-                #cv2.imshow("poly", poly_img)
-                #cv2.waitKey(0)
-
-            cv2.circle(poly_img, (highest[0], highest[1]), radius=5, color=(0, 0, 0), thickness=3)
-            cv2.circle(poly_img, (lowest[0], lowest[1]), radius=5, color=(100, 100, 100), thickness=3)
-
-            if highest[0] < lowest[0]:
-                print("left")
-                cv2.putText(poly_img, "left", tuple(leftest), cv2.FONT_HERSHEY_SIMPLEX , 1, (255, 0, 255), 2, cv2.LINE_AA)
-            elif highest[0] > lowest[0]:
-                print("right")
-                cv2.putText(poly_img, "right", tuple(rightest), cv2.FONT_HERSHEY_SIMPLEX , 1, (255, 0, 255), 2, cv2.LINE_AA)
-            else:
-                print("unknown")
+    
+    smallest_obj = select_smallest(valid_obj)
+    if smallest_obj:
+        valid_obj = [smallest_obj]
+    else:
+        valid_obj = [] 
 
 
-            # print("slope pos/neg cnt: ", pos_slope, neg_slope)
-            # M = cv2.moments(hull)
-            # if M["m00"] != 0:#由於除數不能為0所以一定要先設判斷式才不會出錯
-            #     cx = int(M["m10"] / M["m00"])#找出中心的x座標
-            #     cy = int(M["m01"] / M["m00"])#找出中心的y座標
-            # if(pos_slope < neg_slope):
-            #     print("right")
-            #     cv2.putText(poly_img, "right", (cx, cy), cv2.FONT_HERSHEY_SIMPLEX , 1, (255, 0, 255), 2, cv2.LINE_AA)
-            # elif(pos_slope > neg_slope):
-            #     print("left")
-            #     cv2.putText(poly_img, "left", (cx, cy), cv2.FONT_HERSHEY_SIMPLEX , 1, (255, 0, 255), 2, cv2.LINE_AA)
-            # else:
-            #     print("unknown")
+    
+    for obj in valid_obj:
+        approx = obj['approx']
+        hull = obj['hull']
+
+        highest = np.array([0, 10000])
+        lowest = np.array([0, -10000])
+        leftest = np.array([10000, 0])
+        rightest = np.array([-10000, 0])
+        for point in hull:
+            #print("tp:", point)
+            point = np.array(point[0])
+            if point[1] < highest[1]:
+                highest = point
+            elif  point[1] > lowest[1]:
+                lowest = point
+
+            if point[0] < leftest[0]:
+                leftest = point
+            elif point[0] > rightest[0]:
+                rightest = point
+
+            cv2.circle(poly_img, (point[0], point[1]), radius=3, color=(0, 255, 255), thickness=3)
+            #cv2.imshow("poly", poly_img)
+            #cv2.waitKey(0)
+
+        cv2.circle(poly_img, (highest[0], highest[1]), radius=5, color=(0, 0, 0), thickness=3)
+        cv2.circle(poly_img, (lowest[0], lowest[1]), radius=5, color=(100, 100, 100), thickness=3)
+
+        if highest[0] < lowest[0]:
+            print("left")
+            cv2.putText(poly_img, "left", tuple(leftest), cv2.FONT_HERSHEY_SIMPLEX , 1, (255, 0, 255), 2, cv2.LINE_AA)
+        elif highest[0] > lowest[0]:
+            print("right")
+            cv2.putText(poly_img, "right", tuple(rightest), cv2.FONT_HERSHEY_SIMPLEX , 1, (255, 0, 255), 2, cv2.LINE_AA)
+        else:
+            print("unknown")
+
+
 
     cv2.imshow("poly", poly_img)
 
-    key = cv2.waitKey(100) & 0xFF
+    key = cv2.waitKey(50) & 0xFF
     if key == ord('q'):
         break
     elif key == 32:

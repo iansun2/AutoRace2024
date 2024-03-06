@@ -141,10 +141,10 @@ def HoughCircles():
 
 
 # 等待紅綠燈
-while True:
-    look_green = HoughCircles()
-    if look_green==1:
-        break
+# while True:
+#     look_green = HoughCircles()
+#     if look_green==1:
+#         break
 
 
 
@@ -283,7 +283,7 @@ while True:
     #target_line = int(target_line * m.exp(-abs(target_line * 0.001)))
     print("corr: ", target_line)
     target_line *= 0.5
-    motor.setSpeed(100 - target_line, 100 + target_line)
+    #motor.setSpeed(100 - target_line, 100 + target_line)
 
     # ser.write(str.encode(str(target_line)))
     #ser.write(str(target_line).encode("gbk"))
@@ -294,8 +294,8 @@ while True:
     cv2.imshow("img", img)
     # out.write(img)
 
-    cv2.imshow("mask_R", mask_R)
-    cv2.imshow("mask_L", mask_L)
+    #cv2.imshow("mask_R", mask_R)
+    #cv2.imshow("mask_L", mask_L)
     # cv2.waitKey(0)
 
      

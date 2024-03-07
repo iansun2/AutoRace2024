@@ -2,21 +2,29 @@ import cv2
 import matplotlib.pyplot as plt 
 import numpy as np
 import time
-import serial
+import motor_controller as mctrl
+import atexit
+import math as m
+import direction as dd
+
+
 
 '''
     序列埠設定
     開啟權限: sudo chmod 666 /dev/ttyACM0
     https://www.itdaan.com/tw/1b422ec424e1c3519f7cee4c2ad05274
 '''
-ser=serial.Serial('/dev/ttyACM0',9600,timeout=0.5)
+#ser=serial.Serial('/dev/ttyACM0',9600,timeout=0.5)
 # ser.flushInput()            # 清除輸入緩存區，放棄所有內容
 # ser.flushOutput()           # 清除輸出緩衝區，放棄輸出
 # ser.open()
 
 
 # 相機設定
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture("/dev/video0")
+if not cap.isOpened():
+	print("camera err")
+	exit()
 cap.set(3,5000)
 cap.set(4,5000)
 cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
@@ -57,6 +65,26 @@ W_sampling_1 = 325
 W_sampling_2 = 290
 W_sampling_3 = 255
 W_sampling_4 = 220
+
+
+# trace mode
+# -1: left, 0: two line, 1: right
+trace_mode = 0
+# dist between screen center and line
+trace_line_dist = 180
+# single line start time
+single_line_st = 0
+
+
+
+motor = mctrl.init_motor()
+
+
+def exit_handler():
+    motor.setSpeed(0, 0)
+
+atexit.register(exit_handler)
+
 
 
 # 看紅綠燈
@@ -118,7 +146,7 @@ def HoughCircles():
 
 
 
-# # 等待紅綠燈
+# 等待紅綠燈
 # while True:
 #     look_green = HoughCircles()
 #     if look_green==1:
@@ -143,19 +171,20 @@ while True:
     L_min_140 = 0
 
     # 讀取圖片並轉HSV
-    # img = cv2.imread('C:/Users/weng/Downloads/f.jpg')
     ret, img = cap.read()
+
+    dd_frame = img.copy()
+    dir, dd_debug_img = dd.direction_detect(dd_frame)
+
     img = cv2.resize(img,(640,360))
-    # img = cv2.GaussianBlur(img, (11, 11), 0)
     hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
     # 右線遮罩
     mask_R = cv2.inRange(hsv,lower_R,upper_R)
-
     # 左線遮罩
     mask_L = cv2.inRange(hsv,lower_L,upper_L)
 
-
+    # Right
     # Canny邊緣運算
     kernel_size = 25
     blur_gray = cv2.GaussianBlur(mask_R,(kernel_size, kernel_size), 0)
@@ -244,27 +273,81 @@ while True:
     pts = np.array([[L_min_300,(360+W_sampling_1)/2], [L_min_240,(W_sampling_1+W_sampling_2)/2], [L_min_180,(W_sampling_2+W_sampling_3)/2],[L_min_140,(W_sampling_3+W_sampling_4)/2]], np.int32)
     pts = pts.reshape((-1, 1, 2))
     img = cv2.polylines(img, [pts], False,(255,200,0),3)
+    for point in pts:
+        #print("point: ", point)
+        cv2.circle(img, tuple(point[0]), 3, color=(255, 0, 200), thickness=3)
+    #pts = pts[1:-2]
+    #img = cv2.polylines(img, [pts], False,(120,200,0),3)
 
     pts = np.array([[R_min_300,(360+W_sampling_1)/2], [R_min_240,(W_sampling_1+W_sampling_2)/2], [R_min_180,(W_sampling_2+W_sampling_3)/2],[R_min_140,(W_sampling_3+W_sampling_4)/2]], np.int32)
     pts = pts.reshape((-1, 1, 2))
     img = cv2.polylines(img, [pts], False,(255,200,0),3)
+    for point in pts:
+        #print("point: ", point)
+        cv2.circle(img, tuple(point[0]), 3, color=(255, 0, 200), thickness=3)
 
 
     L_min = 320-((L_min_300+L_min_240+L_min_180+L_min_140)/4)
     R_min = ((R_min_300+R_min_240+R_min_180+R_min_140)/4)-320
-    target_line = int(L_min-R_min)
-    print(target_line)
+    print("min L/R: ", L_min, " ", R_min)
+
+
+    # direction
+    # left
+    if dir == -1 and trace_mode == 0:
+        single_line_st = time.time()
+        trace_mode = -1
+    # right
+    elif dir == 1 and trace_mode == 0:
+        single_line_st = time.time()
+        trace_mode = 1
+    # release
+    elif (time.time() - single_line_st) > 30:
+        print("release")
+        trace_mode = 0
+
+    print("trace mode: ", trace_mode)
+
+
+    # trace mode
+    # left line
+    if trace_mode == -1:
+        target_line = int(L_min - 150) * 2
+    # right line
+    elif trace_mode == 1:
+        target_line = int(170 - R_min) * 3
+    # two lines
+    else:
+        target_line = int(L_min-R_min)
+
+    # draw target line
+    cv2.line(img, (320, 360), (320 - target_line, 280), color=(255, 100, 200), thickness=3)
+
+    # if dir == 1:
+    #     target_line -= 150
+    # elif dir == -1:
+    #     target_line += 150
+    # cv2.line(img, (320, 360), (320 - target_line, 280), color=(255, 200, 200), thickness=3)
+
+    print("target line: ", target_line)
+
+    #target_line = int(target_line * m.exp(-abs(target_line * 0.001)))
+    print("corr: ", target_line)
+    target_line *= 0.5
+    motor.setSpeed(100 - target_line, 100 + target_line)
+
     # ser.write(str.encode(str(target_line)))
-    ser.write(str(target_line).encode("gbk"))
+    #ser.write(str(target_line).encode("gbk"))
 
 
 
     # 輸出原圖&成果
     cv2.imshow("img", img)
+    cv2.imshow("dd", dd_debug_img)
     # out.write(img)
 
-    cv2.imshow("mask_R", mask_R)
-    cv2.imshow("mask_L", mask_L)
+    #cv2.imshow("mask_R", mask_R)
+    #cv2.imshow("mask_L", mask_L)
     # cv2.waitKey(0)
 
      
@@ -272,9 +355,11 @@ while True:
     k=cv2.waitKey(1)
     if k==ord('q'):
         cv2.destroyAllWindows()
+        motor.setSpeed(0, 0)
         break
 
 
+
 cap.release()
-ser.close()
 cv2.destroyAllWindows()
+motor.setSpeed(0, 0)

@@ -132,7 +132,7 @@ def direction_detect(frame: cv2.UMat):
 
     valid_obj = select_smallest(valid_obj)
     if(valid_obj == {}):
-        print("direction err")
+        #print("direction err")
         return 0, debug_img
 
     approx = valid_obj['approx']

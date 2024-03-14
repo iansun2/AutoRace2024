@@ -1,67 +1,35 @@
-#!/usr/bin/env python3
-'''Animates distances and measurment quality'''
 from rplidar import RPLidar
-import matplotlib.pyplot as plt
-import numpy as np
-import matplotlib.animation as animation
-import time as t
-import cv2
-from PIL import Image
 import threading
 
-PORT_NAME = 'COM9'
-DMAX = 400
-IMIN = 0
-IMAX = 50
+mutex = threading.Lock()
 
-def update_line(num, iterator, line):
-    scan = next(iterator)
-    #scan_data = [scan[0], scan[1], scan[2], scan[3]]
-    offsets = np.array([(np.radians(meas[1]), meas[2]) for meas in scan])
-    line.set_offsets(offsets)
-    intens = np.array([meas[0] for meas in scan])
-    line.set_array(intens)
-    print(t.time())
-    return line,
+lidar_target = 0
 
-def run():
-    lidar = RPLidar(PORT_NAME)
-    fig = plt.figure()
-    ax = plt.subplot(111, projection='polar')
-    line = ax.scatter([0, 0], [0, 0], s=5, c=[IMIN, IMAX],
-                           cmap=plt.cm.Greys_r, lw=0)
-    ax.set_rmax(DMAX)
-    ax.grid(True)
+def lidar_handler():
+    global lidar_target
 
+    PORT = "/dev/ttyUSB1"
+    # init Lidar
+    lidar = RPLidar(PORT)
     iterator = lidar.iter_scans()
-    #iterator = lidar.iter_measures()
-    ani = animation.FuncAnimation(fig, update_line,
-        fargs=(iterator, line), interval=50)
-    plt.show()
-    lidar.stop()
-    lidar.disconnect()
 
-
-
-
-lidar = RPLidar(PORT_NAME)
-iterator = lidar.iter_scans()
-
-data_size = 400
-lidar_list = np.array([[True, 0, 0]] * data_size)
-diff_lidar_list = np.array([0] * data_size)
-
-def data_collect():
-    current_deg = 0
-    idx = 0
     fov = 90
     l_edge = fov / 2
     r_edge = 360 - fov / 2
     filt_dist = 300
+    kp = 5e-3
 
-    while True:
+    while 1:
         err = 0
-        scan = next(iterator)
+        try:
+            scan = next(iterator)
+        except:
+            lidar.stop()
+            lidar.disconnect()
+            lidar = RPLidar(PORT)
+            iterator = lidar.iter_scans()
+            continue
+
         for data in scan:
             deg = data[1]
             dist = data[2]
@@ -70,66 +38,34 @@ def data_collect():
                     err += (deg - r_edge) * (dist - filt_dist)
                 elif deg < l_edge:
                     err += (deg - l_edge) * (dist - filt_dist)
+        #print("error: ", err * kp)
+        mutex.acquire()
+        lidar_target = err * kp
+        mutex.release()
 
-        print("error: ", err * 5e-3)
 
-
-
-#line = None
-
-def show(num, line, line2):
-    offsets = np.array([(np.radians(meas[1]), meas[2]) for meas in lidar_list])
-    line.set_offsets(offsets)
-    intens = np.array([meas[0] for meas in lidar_list])
-    line.set_array(intens)
-
-    # offsets = np.array([(np.radians(meas[0]), meas[1]) for meas in diff_lidar_list])
-    # line.set_offsets(offsets)
-    # intens = np.array([meas[0] for meas in diff_lidar_list])
-    # line.set_array(intens)
-    
-    return line, line2
+def get_lidar_target():
+    mutex.acquire()
+    val = lidar_target
+    mutex.release()
+    return int(val)
 
 
 
-def debug():
-    st = t.time()
-    while 1:
-        if(t.time() - st > 1):
-            print("A: ", lidar_list)
-            print("B: ", diff_lidar_list)
-            st = t.time()
+lidar_thread = threading.Thread(target=lidar_handler)
+lidar_thread.start()
 
 
 
 if __name__ == '__main__':
-    data_thread = threading.Thread(target=data_collect)
-    data_thread.start()
-
-    #debug_thread = threading.Thread(target=debug)
-    #debug_thread.start()
-
-    # fig = plt.figure()
-    # ax = plt.subplot(111, projection='polar')
-    # line = ax.scatter([0, 0], [0, 0], s=5, c=[IMIN, IMAX],
-    #                        cmap=plt.cm.Greys_r, lw=0)
-    
-    # line2 = ax.scatter([0, 0], [0, 0], s=5, c=[IMIN, IMAX],
-    #                        cmap=plt.cm.Greys_r, lw=0)
-
-    # ax.set_rmax(DMAX)
-    # ax.grid(True)
-    
-    # ani = animation.FuncAnimation(fig, show, fargs=(line, line2, ), interval=50)
-    # plt.show()
-
-    data_thread.join()
+    #lidar = RPLidar('/dev/ttyUSB1')
+    #iterator = lidar.iter_scans()
 
     while 1:
-        pass
+        err = get_lidar_target()
+        print("error: ", err)
 
-    lidar.stop()
-    lidar.disconnect()
+
 
 
 

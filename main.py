@@ -7,18 +7,18 @@ import atexit
 import math as m
 import direction as dd
 import trace_line as tl
+from rplidar import RPLidar
+import lidar as ld
+import threading
 
 
+### Variable ###
+# trace mode
+# -1: left, 0: two line, 1: right
+trace_mode = 0
+# single line start time
+single_line_st = 0
 
-'''
-    序列埠設定
-    開啟權限: sudo chmod 666 /dev/ttyACM0
-    https://www.itdaan.com/tw/1b422ec424e1c3519f7cee4c2ad05274
-'''
-#ser=serial.Serial('/dev/ttyACM0',9600,timeout=0.5)
-# ser.flushInput()            # 清除輸入緩存區，放棄所有內容
-# ser.flushOutput()           # 清除輸出緩衝區，放棄輸出
-# ser.open()
 
 
 # 相機設定
@@ -26,27 +26,22 @@ cap = cv2.VideoCapture("/dev/video0")
 if not cap.isOpened():
 	print("camera err")
 	exit()
-cap.set(3,5000)
-cap.set(4,5000)
+cap.set(3,1000)
+cap.set(4,1000)
 cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
 
 
 
-# trace mode
-# -1: left, 0: two line, 1: right
-trace_mode = 0
-# dist between screen center and line
-trace_line_dist = 180
-# single line start time
-single_line_st = 0
 
 
-
-motor = mctrl.init_motor()
+# init motor
+#motor = mctrl.init_motor()
 
 
 def exit_handler():
     motor.setSpeed(0, 0)
+    #lidar.stop()
+    #lidar.disconnect()
 
 atexit.register(exit_handler)
 
@@ -106,9 +101,26 @@ def HoughCircles():
 
 
 
+mutex_camera = threading.Lock()
+ret = None
+img = None
+def camera_handler():
+    global ret, img
+    while(1):
+        _ret, _img = cap.read()
+        mutex_camera.acquire()
+        ret = _ret
+        img = _img
+        mutex_camera.release()
+camera_thread = threading.Thread(target=camera_handler)
+camera_thread.start()
 
-
-
+def get_camera():
+    mutex_camera.acquire()
+    _ret = ret
+    _img = img
+    mutex_camera.release()
+    return _ret, _img
 
 
 # 等待紅綠燈
@@ -117,22 +129,33 @@ def HoughCircles():
 #     if look_green==1:
 #         break
 
+while ret is None or img is None:
+    pass
 
 
+print_img_time = time.time() 
 # 正式開始
 while True:
-
     t = time.time()
 
     # 讀取圖片並轉HSV
-    ret, img = cap.read()
+    ret, img = get_camera()
+    #ret, img = cap.read()
 
-    # direction
+    # direction process
     dd_frame = img.copy()
     dir, dd_debug_img = dd.direction_detect(dd_frame)
+    # debug
+    # dir = 0
 
-    # trace line
-    L_min, R_min = tl.get_trace_value(img)
+    # trace line process
+    tl_frame = img.copy()
+    L_min, R_min, tl_debug_img = tl.get_trace_value(tl_frame)
+    # debug
+    # L_min = 0
+    # R_min = 0
+    # tl_debug_img = img.copy()
+
 
     # direction to trace mode
     # left
@@ -145,44 +168,50 @@ while True:
         trace_mode = 1
     # release
     elif (time.time() - single_line_st) > 30:
-        print("release")
+        #print("release")
         trace_mode = 0
 
     print("trace mode: ", trace_mode)
 
 
-    # trace mode
-    # left line
-    if trace_mode == -1:
-        target_line = int(L_min - 150) * 2
-    # right line
-    elif trace_mode == 1:
-        target_line = int(170 - R_min) * 3
-    # two lines
-    else:
-        target_line = int(L_min-R_min)
+    # get trace
+    trace = tl.trace_by_mode(trace_mode, L_min, R_min)
+    # draw trace
+    cv2.line(tl_debug_img, (320, 360), (320 - trace, 280), color=(255, 100, 200), thickness=3)
+
+    # get lidar
+    lidar_target = ld.get_lidar_target()
+    # draw lidar_target
+    cv2.line(tl_debug_img, (320, 360), (320 - lidar_target, 280), color=(100, 100, 200), thickness=3)
+
+    target = trace + lidar_target
+    # draw target
+    cv2.line(tl_debug_img, (320, 360), (320 - target, 280), color=(200, 200, 200), thickness=3)
+
+    print("trace / lidar /target: ", trace, ' / ', lidar_target, ' / ', target)
+    target *= 0.5
 
 
-    # draw target line
-    cv2.line(img, (320, 360), (320 - target_line, 280), color=(255, 100, 200), thickness=3)
-
-    print("target line: ", target_line)
-
-    print("corr: ", target_line)
-    target_line *= 0.5
-    motor.setSpeed(100 - target_line, 100 + target_line)
+    try:
+        motor.setSpeed(100 - target, 100 + target)
+        pass
+    except:
+        motor = mctrl.init_motor()
+        pass
 
 
 
 
     # 輸出原圖&成果
-    cv2.imshow("img", img)
-    cv2.imshow("dd", dd_debug_img)
-    # out.write(img)
+    if time.time() - print_img_time > 0.2:
+        cv2.imshow("img", tl_debug_img)
+        #cv2.imshow("dd", dd_debug_img)
 
-    #cv2.imshow("mask_R", mask_R)
-    #cv2.imshow("mask_L", mask_L)
-    # cv2.waitKey(0)
+        #cv2.imshow("mask_R", mask_R)
+        #cv2.imshow("mask_L", mask_L)
+        # cv2.waitKey(0)
+        print_img_time = time.time()
+
 
      
 
@@ -191,6 +220,8 @@ while True:
         cv2.destroyAllWindows()
         motor.setSpeed(0, 0)
         break
+
+    #print(time.time())
 
 
 

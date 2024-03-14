@@ -162,4 +162,26 @@ def get_trace_value(img : cv2.UMat):
     R_min = ((R_min_300+R_min_240+R_min_180+R_min_140)/4)-320
     #print("min L/R: ", L_min, " ", R_min)
 
-    return L_min, R_min
+    return L_min, R_min, img
+
+
+
+# dist between screen center and line
+single_line_dist_L = 150
+single_line_kp_L = 2
+single_line_dist_R = 170
+single_line_kp_R = 3
+
+def trace_by_mode(trace_mode : int, L_min : int, R_min : int):
+    # trace mode
+    # left line
+    if trace_mode == -1:
+        trace = int(L_min - single_line_dist_L) * single_line_kp_L
+    # right line
+    elif trace_mode == 1:
+        trace = int(single_line_dist_R - R_min) * single_line_kp_R
+    # two lines
+    else:
+        trace = int(L_min-R_min)
+
+    return trace

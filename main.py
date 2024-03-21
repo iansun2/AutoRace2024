@@ -13,6 +13,15 @@ import threading
 
 
 ### Variable ###
+# Stage
+# 0: 紅綠燈, 1: 左右路口, 2: 避障
+# 3: 停車,   4: 停車離場, 5: 柵欄
+stage = 1
+# enable
+disable_trace = False
+disable_lidar_trace = True
+disable_drive = False
+
 # trace mode
 # -1: left, 0: two line, 1: right
 trace_mode = 0
@@ -35,7 +44,7 @@ cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
 
 
 # init motor
-#motor = mctrl.init_motor()
+motor = mctrl.init_motor()
 
 
 def exit_handler():
@@ -101,6 +110,9 @@ def HoughCircles():
 
 
 
+
+
+# Camera
 mutex_camera = threading.Lock()
 ret = None
 img = None
@@ -123,6 +135,8 @@ def get_camera():
     return _ret, _img
 
 
+
+
 # 等待紅綠燈
 # while True:
 #     look_green = HoughCircles()
@@ -140,64 +154,132 @@ while True:
 
     # 讀取圖片並轉HSV
     ret, img = get_camera()
-    #ret, img = cap.read()
 
     # direction process
     dd_frame = img.copy()
     dir, dd_debug_img = dd.direction_detect(dd_frame)
+    filted_dir = dd.dir_filt(dir)
     # debug
     # dir = 0
 
     # trace line process
     tl_frame = img.copy()
-    L_min, R_min, tl_debug_img = tl.get_trace_value(tl_frame)
+    L_min, R_min, tl_debug_img, mask_L, mask_R = tl.get_trace_value(tl_frame)
     # debug
     # L_min = 0
     # R_min = 0
     # tl_debug_img = img.copy()
 
 
-    # direction to trace mode
-    # left
-    if dir == -1 and trace_mode == 0:
-        single_line_st = time.time()
-        trace_mode = -1
-    # right
-    elif dir == 1 and trace_mode == 0:
-        single_line_st = time.time()
-        trace_mode = 1
-    # release
-    elif (time.time() - single_line_st) > 30:
-        #print("release")
-        trace_mode = 0
+    # 左右岔路
+    if stage == 1:
+        # direction to trace mode
+        # left
+        if filted_dir == -1 and trace_mode == 0:
+            single_line_st = time.time()
+            trace_mode = -1
+        # right
+        elif filted_dir == 1 and trace_mode == 0:
+            single_line_st = time.time()
+            trace_mode = 1
+        # release
+        elif (time.time() - single_line_st) > 30:
+            #print("release")
+            trace_mode = 0
+            # to stage 2
+            stage = 2
+            disable_lidar_trace = False
+            disable_trace = False
+        print("trace mode: ", trace_mode)
 
-    print("trace mode: ", trace_mode)
+    # 避障
+    elif stage == 2:
+        if filted_dir != 0:
+            # to stage 3
+            stage = 3
+            disable_lidar_trace = True
+            disable_trace = False
+            trace_mode = -1
+    
+    # 停車
+    elif stage == 3:
+        if ld.get_lidar_closest()[0] < 500:
+            motor.setSpeed(30, 30)
+
+            closest = ld.get_lidar_closest()
+            while closest[1] > 280 or closest[1] < 80 or (closest[1] > 100 and closest[1] < 260):
+                print(ld.get_lidar_closest())
+                closest = ld.get_lidar_closest()
+                pass
+            motor.setSpeed(0, 0)
+            
+            # left full
+            if closest < 180:
+                motor.goRotate(-90, 30)
+                motor.goDist(-50, 30)
+                time.sleep(1)
+                motor.goDist(50, 30)
+                motor.goRotate(-90, 30)
+            # right full
+            else:
+                motor.goRotate(90, 30)
+                motor.goDist(-50, 30)
+                time.sleep(1)
+                motor.goDist(50, 30)
+                motor.goRotate(90, 30)
+            
+            motor.goDist(50, 30)
+            # to stage 4
+            stage = 4
+            disable_trace = False
+            disable_lidar_trace = True
+            trace_mode = -1
+    
+    # 離開停車
+    elif stage == 4:
+        if filted_dir != 0:
+            motor.goDist(50, 30)
+            # to stage 5
+            disable_trace = False
+            disable_lidar_trace = True
+            trace_mode = 0
+
+        
+
+    # trace
+    if not disable_trace:
+        # get trace
+        trace = tl.trace_by_mode(trace_mode, L_min, R_min)
+        # draw trace
+        cv2.line(tl_debug_img, (320, 360), (320 - trace, 280), color=(255, 100, 200), thickness=3)
+    else:
+        trace = 0
+
+    # lidar
+    if not disable_lidar_trace:
+        # get lidar
+        lidar_target = ld.get_lidar_target()
+        # draw lidar_target
+        cv2.line(tl_debug_img, (320, 360), (320 - lidar_target, 280), color=(100, 100, 200), thickness=3)
+    else:
+        lidar_target = 0
 
 
-    # get trace
-    trace = tl.trace_by_mode(trace_mode, L_min, R_min)
-    # draw trace
-    cv2.line(tl_debug_img, (320, 360), (320 - trace, 280), color=(255, 100, 200), thickness=3)
+    # drive
+    if not disable_drive:
+        target = trace + lidar_target
+        # draw target
+        cv2.line(tl_debug_img, (320, 360), (320 - target, 280), color=(200, 200, 200), thickness=3)
 
-    # get lidar
-    lidar_target = ld.get_lidar_target()
-    # draw lidar_target
-    cv2.line(tl_debug_img, (320, 360), (320 - lidar_target, 280), color=(100, 100, 200), thickness=3)
+        print("trace / lidar /target: ", trace, ' / ', lidar_target, ' / ', target)
+        target *= 0.5
 
-    target = trace + lidar_target
-    # draw target
-    cv2.line(tl_debug_img, (320, 360), (320 - target, 280), color=(200, 200, 200), thickness=3)
-
-    print("trace / lidar /target: ", trace, ' / ', lidar_target, ' / ', target)
-    target *= 0.5
-
-
-    try:
-        motor.setSpeed(100 - target, 100 + target)
-        pass
-    except:
-        motor = mctrl.init_motor()
-        pass
+        try:
+            #motor.setSpeed(200 - target, 200 + target)
+            pass
+        except:
+            motor = mctrl.init_motor()
+            pass
 
 
 

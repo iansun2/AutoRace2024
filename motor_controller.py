@@ -3,6 +3,7 @@
 import os
 import time
 from dynamixel_sdk import *                 # Uses Dynamixel SDK library
+import asyncio
 
 if os.name == 'nt':
     import msvcrt
@@ -84,6 +85,13 @@ class MOTOR_2_WHEEL_MODE(USB_DEVICE):
         self.packetHandler.write1ByteTxRx(self.portHandler,self.m2_id, 64, 1)
 
 
+    # in mm
+    def setupWheel(self, wheel_diameter, track, wheel_calibration):
+        self.wheel_circumference = wheel_diameter * 3.1416
+        self.wheel_calibration = wheel_calibration
+        self.track_circumference = track * 3.1416
+
+
     def ping(self):
         m1_model_number, m1_comm_result, m1_error = self.packetHandler.ping(self.portHandler, self.m1_id)
         if m1_comm_result != COMM_SUCCESS:
@@ -105,13 +113,37 @@ class MOTOR_2_WHEEL_MODE(USB_DEVICE):
     def setSpeed(self, m1_speed, m2_speed):
         # Motor 1
         self.packetHandler.write4ByteTxRx(self.portHandler,self.m1_id, 104, int(m1_speed))    # Goal Velocity
-        # self.packetHandler.write2ByteTxRx(self.portHandler,self.m1_id, 76, 1920)    # Velocity I Gain
-        # self.packetHandler.write2ByteTxRx(self.portHandler,self.m1_id, 78, 100)     # 	Velocity P Gain
-
         # Motor 2
         self.packetHandler.write4ByteTxRx(self.portHandler,self.m2_id, 104, int(m2_speed))
-        # self.packetHandler.write2ByteTxRx(self.portHandler,self.m2_id, 76, 1920)
-        # self.packetHandler.write2ByteTxRx(self.portHandler,self.m2_id, 78, 100)
+
+
+    async def _goDist(self, dist, speed):
+        self.setSpeed(speed, speed)
+        line_speed = speed / 60 * self.wheel_circumference
+        #print(dist / line_speed)
+        await asyncio.sleep(self.wheel_calibration * abs(dist) / line_speed)
+        self.setSpeed(0, 0)
+
+
+    def goDist(self, dist, speed):
+        asyncio.run(self._goDist(dist, speed))
+    
+
+    async def _goRotate(self, angle, speed):
+        if angle > 0:
+            self.setSpeed(speed, -speed)
+        else:
+            self.setSpeed(-speed, speed)
+        line_speed = speed / 60 * self.wheel_circumference
+        await asyncio.sleep(self.wheel_calibration * self.track_circumference * abs(angle / 360) / line_speed)
+        self.setSpeed(0, 0)
+
+
+    def goRotate(self, angle, speed):
+        asyncio.run(self._goRotate(angle, speed))
+    
+        
+        
 
 
 
@@ -119,6 +151,7 @@ def init_motor() -> MOTOR_2_WHEEL_MODE:
     motor = MOTOR_2_WHEEL_MODE()
     motor.usb_initialization(usb='/dev/ttyUSB0', baudrate=1000000, protocol_version=2.0)
     motor.motor_initialization(m1_id=1, m2_id=2)
+    motor.setupWheel(65, 158.5, 4.4)
     motor.ping()
     motor.setSpeed(0, 0)
     return motor
@@ -129,11 +162,16 @@ if __name__ == '__main__':
     motor = MOTOR_2_WHEEL_MODE()
     motor.usb_initialization(usb='/dev/ttyUSB0', baudrate=1000000, protocol_version=2.0)
     motor.motor_initialization(m1_id=1, m2_id=2)
+    motor.setupWheel(65, 158.5, 4.4)
     motor.ping()
-    motor.setSpeed(100, 100)
-    time.sleep(1)
-    motor.setSpeed(-200, -200)
-    time.sleep(1)
-    motor.setSpeed(0, 0)
-
+    # motor.setSpeed(100, 100)
+    # time.sleep(1)
+    # motor.setSpeed(-50, -50)
+    # time.sleep(2)
+    #motor.setSpeed(0, 0)
+    #time.sleep(1)
+    #motor.goDist(50, 50)
+    motor.goRotate(90, 50)
+    motor.goRotate(-90, 50)
+    
 

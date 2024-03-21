@@ -4,6 +4,7 @@ import threading
 mutex = threading.Lock()
 
 lidar_target = 0
+lidar_closest = [0, 0] # dist, angle
 
 def lidar_handler():
     global lidar_target
@@ -13,11 +14,11 @@ def lidar_handler():
     lidar = RPLidar(PORT)
     iterator = lidar.iter_scans()
 
-    fov = 90
+    fov = 160
     l_edge = fov / 2
     r_edge = 360 - fov / 2
-    filt_dist = 300
-    kp = 5e-3
+    filt_dist = 500
+    kp = 5e-4
 
     while 1:
         err = 0
@@ -30,10 +31,16 @@ def lidar_handler():
             iterator = lidar.iter_scans()
             continue
 
+        closest = [1000000, 0]
+
         for data in scan:
             deg = data[1]
             dist = data[2]
             if dist < filt_dist:
+                # get closest
+                if dist < cloest_dist[0]:
+                    cloest_dist = [dist, deg]
+                # avoidance
                 if deg >= r_edge:
                     err += (deg - r_edge) * (dist - filt_dist)
                 elif deg < l_edge:
@@ -41,6 +48,7 @@ def lidar_handler():
         #print("error: ", err * kp)
         mutex.acquire()
         lidar_target = err * kp
+        lidar_closest = closest.copy()
         mutex.release()
 
 
@@ -49,6 +57,13 @@ def get_lidar_target():
     val = lidar_target
     mutex.release()
     return int(val)
+
+
+def get_lidar_closest():
+    mutex.acquire()
+    val = lidar_closest
+    mutex.release()
+    return val
 
 
 

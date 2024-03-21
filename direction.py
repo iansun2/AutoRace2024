@@ -176,6 +176,32 @@ def direction_detect(frame: cv2.UMat):
     return dir, debug_img
 
 
+sample_dur = 1
+last_sample_start = time.time()
+samples = [0, 0, 0]
+filt_threshold = 0.5
+def dir_filt(dir):
+    global last_sample_start, samples
+    if time.time() - last_sample_start > sample_dur:
+        sample_cnt = max(samples[0] + samples[1] + samples[2], 1)
+        max_cnt = 0
+        max_cnt_idx = 0
+        for idx in range(0, 3):
+            if samples[idx] > max_cnt:
+                max_cnt = samples[idx]
+                max_cnt_idx = idx
+        
+        last_sample_start = time.time()
+        samples = [0, 0, 0]
+        if max_cnt / sample_cnt > filt_threshold:
+            return max_cnt_idx - 1
+        else:
+            return 0
+    else:
+        samples[dir + 1] += 1
+        return 0
+
+
 
 
 
@@ -203,6 +229,9 @@ if __name__ == "__main__":
         ret, frame = cap.read()
         dir, debug_img = direction_detect(frame)
         cv2.imshow("debug", debug_img)
+        filted_dir = dir_filt(dir)
+        if filted_dir != 0:
+            print("Filted: ", filted_dir)
 
         key = cv2.waitKey(50) & 0xFF
         if key == ord('q'):

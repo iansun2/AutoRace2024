@@ -7,7 +7,7 @@ lidar_target = 0
 lidar_closest = [0, 0] # dist, angle
 
 def lidar_handler():
-    global lidar_target
+    global lidar_target, lidar_closest
 
     PORT = "/dev/ttyUSB1"
     # init Lidar
@@ -38,8 +38,8 @@ def lidar_handler():
             dist = data[2]
             if dist < filt_dist:
                 # get closest
-                if dist < cloest_dist[0]:
-                    cloest_dist = [dist, deg]
+                if dist < closest[0]:
+                    closest = [dist, deg]
                 # avoidance
                 if deg >= r_edge:
                     err += (deg - r_edge) * (dist - filt_dist)
@@ -79,6 +79,9 @@ if __name__ == '__main__':
     while 1:
         err = get_lidar_target()
         print("error: ", err)
+        closest = get_lidar_closest()
+        print("closest: ", closest)
+
 
 
 

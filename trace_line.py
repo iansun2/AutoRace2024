@@ -167,22 +167,18 @@ def get_trace_value(img : cv2.UMat):
 
 
 # dist between screen center and line
-single_line_dist_L = 150
-single_line_kp_L = 2
-single_line_dist_R = 170
-single_line_kp_R = 3
-two_line_kp = 1.5
+# config : [single_line_dist_L, single_line_dist_R, single_line_kp_L, single_line_kp_R, two_line_kp]
 
-def trace_by_mode(trace_mode : int, L_min : int, R_min : int):
+def trace_by_mode(trace_mode : int, L_min : int, R_min : int, config : list):
     # trace mode
     # left line
     if trace_mode == -1:
-        trace = (L_min - single_line_dist_L) * single_line_kp_L
+        trace = (L_min - config[0]) * config[2]
     # right line
     elif trace_mode == 1:
-        trace = (single_line_dist_R - R_min) * single_line_kp_R
+        trace = (config[1] - R_min) * config[3]
     # two lines
     else:
-        trace = (L_min-R_min) * two_line_kp
+        trace = (L_min-R_min) * config[4]
 
     return int(trace)

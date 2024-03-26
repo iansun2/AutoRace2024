@@ -118,7 +118,10 @@ class MOTOR_2_WHEEL_MODE(USB_DEVICE):
 
 
     async def _goDist(self, dist, speed):
-        self.setSpeed(speed, speed)
+        if dist < 0:
+            self.setSpeed(-speed, -speed)
+        else:
+            self.setSpeed(speed, speed)
         line_speed = speed / 60 * self.wheel_circumference
         #print(dist / line_speed)
         await asyncio.sleep(self.wheel_calibration * abs(dist) / line_speed)
@@ -151,7 +154,7 @@ def init_motor() -> MOTOR_2_WHEEL_MODE:
     motor = MOTOR_2_WHEEL_MODE()
     motor.usb_initialization(usb='/dev/ttyUSB0', baudrate=1000000, protocol_version=2.0)
     motor.motor_initialization(m1_id=1, m2_id=2)
-    motor.setupWheel(65, 158.5, 4.4)
+    motor.setupWheel(65, 158.5, 4.5)
     motor.ping()
     motor.setSpeed(0, 0)
     return motor
@@ -162,7 +165,7 @@ if __name__ == '__main__':
     motor = MOTOR_2_WHEEL_MODE()
     motor.usb_initialization(usb='/dev/ttyUSB0', baudrate=1000000, protocol_version=2.0)
     motor.motor_initialization(m1_id=1, m2_id=2)
-    motor.setupWheel(65, 158.5, 4.4)
+    motor.setupWheel(65, 158.5, 4.5)
     motor.ping()
     # motor.setSpeed(100, 100)
     # time.sleep(1)

@@ -16,7 +16,7 @@ import threading
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 停車離場, 5: 柵欄
-stage = 1
+stage = 2
 # enable
 disable_trace = False
 disable_lidar_trace = True
@@ -27,6 +27,9 @@ disable_drive = False
 trace_mode = 0
 # single line start time
 single_line_st = 0
+# trace config
+default_trace_config = [150, 170, 2, 3, 1.5]
+current_trace_config = default_trace_config.copy()
 
 
 
@@ -194,45 +197,65 @@ while True:
 
     # 避障
     elif stage == 2:
+        # 看到標誌指向任何一邊
         if filted_dir != 0:
             # to stage 3
             stage = 3
             disable_lidar_trace = True
             disable_trace = False
             trace_mode = -1
+            current_trace_config = [190, 170, 2, 3, 1.5]
+            motor.setSpeed(0, 0)
+            time.sleep(1)
+            print("go to stage 3")
+
     
     # 停車
     elif stage == 3:
-        if ld.get_lidar_closest()[0] < 500:
-            motor.setSpeed(30, 30)
+        if ld.get_lidar_closest()[0] < 450:
+            print("enter parking mode: ", ld.get_lidar_closest())
+            motor.setSpeed(60, 60)
 
             closest = ld.get_lidar_closest()
             while closest[1] > 280 or closest[1] < 80 or (closest[1] > 100 and closest[1] < 260):
-                print(ld.get_lidar_closest())
+                #print(ld.get_lidar_closest())
                 closest = ld.get_lidar_closest()
                 pass
+            print("stop 1")
             motor.setSpeed(0, 0)
             
-            # left full
-            if closest < 180:
-                motor.goRotate(-90, 30)
-                motor.goDist(-50, 30)
-                time.sleep(1)
-                motor.goDist(50, 30)
-                motor.goRotate(-90, 30)
             # right full
-            else:
-                motor.goRotate(90, 30)
-                motor.goDist(-50, 30)
+            if closest[1] < 180:
+                park_dist = 250
+                park_speed = 50
+                print("right full")
                 time.sleep(1)
-                motor.goDist(50, 30)
                 motor.goRotate(90, 30)
+                motor.goDist(-park_dist, park_speed)
+                time.sleep(1)
+                print("leave slot")
+                motor.goDist(park_dist, park_speed)
+                motor.goRotate(100, 30)
+            # left full
+            else:
+                park_dist = 250
+                park_speed = 50
+                print("left full")
+                time.sleep(1)
+                motor.goRotate(-90, 30)
+                motor.goDist(-park_dist, park_speed)
+                time.sleep(1)
+                print("leave slot")
+                motor.goDist(park_dist, park_speed)
+                motor.goRotate(-100, 30)
             
-            motor.goDist(50, 30)
+            motor.goDist(250, 50)
             # to stage 4
+            print("to stage 4")
             stage = 4
             disable_trace = False
             disable_lidar_trace = True
+            current_trace_config = default_trace_config.copy()
             trace_mode = -1
     
     # 離開停車
@@ -240,6 +263,7 @@ while True:
         if filted_dir != 0:
             motor.goDist(50, 30)
             # to stage 5
+            print("to stage 5")
             disable_trace = False
             disable_lidar_trace = True
             trace_mode = 0
@@ -249,7 +273,7 @@ while True:
     # trace
     if not disable_trace:
         # get trace
-        trace = tl.trace_by_mode(trace_mode, L_min, R_min)
+        trace = tl.trace_by_mode(trace_mode, L_min, R_min, current_trace_config)
         # draw trace
         cv2.line(tl_debug_img, (320, 360), (320 - trace, 280), color=(255, 100, 200), thickness=3)
     else:
@@ -275,7 +299,7 @@ while True:
         target *= 0.5
 
         try:
-            #motor.setSpeed(200 - target, 200 + target)
+            motor.setSpeed(100 - target, 100 + target)
             pass
         except:
             motor = mctrl.init_motor()

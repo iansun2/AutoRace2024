@@ -1,16 +1,22 @@
 import cv2
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 
-low_mask = np.array([0, 100, 100])
-high_mask = np.array([20, 255, 255])
+low_mask = np.array([0, 120, 120])
+high_mask = np.array([10, 255, 255])
+
+low_mask2 = np.array([160, 120, 120])
+high_mask2 = np.array([179, 255, 255])
 
 
 def frame_preprocess(frame: cv2.Mat) -> cv2.Mat:
     frame = cv2.resize(frame, (500, 500), interpolation=cv2.INTER_AREA)
-    frame = frame[0:500, 100:400]
+    #frame = frame[0:500, 0:500]
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    img = cv2.inRange(hsv, low_mask, high_mask)
+    mask1 = cv2.inRange(hsv, low_mask, high_mask)
+    mask2 = cv2.inRange(hsv, low_mask2, high_mask2)
+    img = mask1 + mask2
     kernel_size = 5
     blur_img = cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
     low_threshold = 10
@@ -35,7 +41,7 @@ def filt_by_arc_length(contours) -> list:
         arc_len = cv2.arcLength(contour, True)
         #print("arc len: ", arc_len)
         #cv2.waitKey(0)
-        if arc_len < 100:
+        if arc_len < 50:
             continue
         valid_objs.append({'cont':contour, 'arc_len':arc_len})
     return valid_objs
@@ -45,7 +51,7 @@ def filt_by_arc_length(contours) -> list:
 def filt_by_points(obj_list, poly_img) -> list:
     valid_objs = []
     for obj in obj_list:
-        approx = cv2.approxPolyDP(obj['cont'], 10, True)
+        approx = cv2.approxPolyDP(obj['cont'], 7, True)
         cv2.polylines(poly_img, [approx], True, (0, 255, 0), 2)
         #hull = cv2.convexHull(approx)
         #cv2.polylines(poly_img, [hull], True, (0, 255, 0), 2)
@@ -90,14 +96,78 @@ def fence_detect(frame: cv2.UMat):
     print("after point filt: ", len(valid_objs))
     valid_objs = filt_by_position(valid_objs, debug_img)
     print("after position filt: ", len(valid_objs))
+    #cv2.imshow("debug2", orignal_img)
 
-    return 0, orignal_img.copy()
+    # 1: up, 0: none, -1: down
+    status = 0
+
+    if len(valid_objs) > 0:
+        data = []
+        for obj in valid_objs:
+            data.append(obj['center'])
+        data = np.array(data)
+        data = data.transpose()
+        # plt.clf()
+        # plt.axis([0,500,500,0])
+        # plt.scatter(data[0], data[1], color="red")
+
+        linear_model = np.polyfit(data[0], data[1], 1)
+        linear_model_fn = np.poly1d(linear_model)
+        print("linear: ", linear_model_fn)
+        # x_s = np.arange(0, 500)
+        # y_s = linear_model_fn(x_s)
+        # plt.plot(x_s, y_s, color="green")
+
+        # plt.title("Scatter Plot of the data")
+        # plt.xlabel("X")
+        # plt.ylabel("Y")
+        m = linear_model_fn.c[0]
+        cv2.putText(debug_img, 'coef: ' + f"{m:.2f}", (150, 250), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 255), 1, cv2.LINE_AA)
+        #plt.draw()
+        #plt.pause(0.001)
+        if abs(m) < 1:
+            status = -1
+        else:
+            status = 1
+            
+        cv2.putText(debug_img, 'status: ' + str(status), (150, 300), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 255, 255), 1, cv2.LINE_AA)
+
+    return status, debug_img.copy()
+
+
+
+sample_dur = 1
+last_sample_start = time.time()
+samples = [0, 0, 0]
+filt_threshold = 0.5
+def fence_filt(fence):
+    global last_sample_start, samples
+    if time.time() - last_sample_start > sample_dur:
+        sample_cnt = max(samples[0] + samples[1] + samples[2], 1)
+        max_cnt = 0
+        max_cnt_idx = 0
+        for idx in range(0, 3):
+            if samples[idx] > max_cnt:
+                max_cnt = samples[idx]
+                max_cnt_idx = idx
+        
+        last_sample_start = time.time()
+        samples = [0, 0, 0]
+        if max_cnt / sample_cnt > filt_threshold:
+            return max_cnt_idx - 1
+        else:
+            return 0
+    else:
+        samples[fence + 1] += 1
+        return 0
+
+
 
 
 
 # main
 if __name__ == "__main__":
-    car_test = False
+    car_test = True
 
     if car_test:
         cap = cv2.VideoCapture("/dev/video0")
@@ -110,19 +180,20 @@ if __name__ == "__main__":
     else:
         cap = cv2.VideoCapture(2+cv2.CAP_DSHOW)
 
-
+    plt.ion()
+    plt.show()
 
     while(True):
         ret, frame = cap.read()
         dir, debug_img = fence_detect(frame)
         cv2.imshow("debug", debug_img)
+        
 
         key = cv2.waitKey(50) & 0xFF
         if key == ord('q'):
             break
         elif key == 32:
             continue
-
 
     cap.release()
     cv2.destroyAllWindows()

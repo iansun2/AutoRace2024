@@ -10,15 +10,16 @@ import trace_line as tl
 from rplidar import RPLidar
 import lidar as ld
 import threading
-
+import fence as fc
 
 
 
 ### Variable ###
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
-# 3: 停車,   4: 停車離場, 5: 柵欄
-stage = 2
+# 3: 停車,   4: 停車離場, 5: 看柵欄
+# 6: 等柵欄, 
+stage = 5
 # enable
 disable_trace = False
 disable_lidar_trace = True
@@ -27,6 +28,9 @@ disable_drive = False
 # trace mode
 # -1: left, 0: two line, 1: right
 trace_mode = 0
+# trace speed
+default_trace_speed = 100
+current_trace_speed = default_trace_speed
 # single line start time
 single_line_st = 0
 # trace config
@@ -189,6 +193,11 @@ while True:
     # R_min = 0
     # tl_debug_img = img.copy()
 
+    # fence process
+    fc_frame = img.copy()
+    fence, fc_debug_img = dd.direction_detect(fc_frame)
+    filted_fc = fc.fence_filt(fence)
+
 
     # 左右岔路
     if stage == 1:
@@ -283,9 +292,36 @@ while True:
             timer_timeout_flag = False
             # go to stage 5
             print("go to stage 5")
+            stage = 5
             disable_trace = False
             disable_lidar_trace = True
             trace_mode = 0
+    
+    # 看柵欄
+    elif stage == 5:
+        motor.setSpeed(50, 50)
+        # fence down
+        if filted_fc == -1:
+            # go to stage 6
+            print("go to stage 6")
+            stage = 6
+            disable_trace = False
+            disable_lidar_trace = True
+            trace_mode = 0
+            current_trace_speed = 20
+
+    # 等柵欄
+    elif stage == 6:
+        # fence up
+        if filted_fc == 1:
+            # go to stage 7
+            print("go to stage 7")
+            stage = 7
+            disable_trace = False
+            disable_lidar_trace = True
+            trace_mode = 0
+            current_trace_speed = default_trace_speed
+
 
         
 
@@ -318,7 +354,7 @@ while True:
         target *= 0.5
 
         try:
-            motor.setSpeed(100 - target, 100 + target)
+            motor.setSpeed(current_trace_speed - target, current_trace_speed + target)
             pass
         except:
             motor = mctrl.init_motor()

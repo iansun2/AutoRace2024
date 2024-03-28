@@ -209,8 +209,8 @@ def dir_filt(dir):
 
 #### main start ####
 if __name__ == "__main__":
-
     car_test = True
+    
     if car_test:
         cap = cv2.VideoCapture("/dev/video0")
         if not cap.isOpened():

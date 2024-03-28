@@ -12,6 +12,8 @@ import lidar as ld
 import threading
 
 
+
+
 ### Variable ###
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
@@ -30,6 +32,20 @@ single_line_st = 0
 # trace config
 default_trace_config = [150, 170, 2, 3, 1.5]
 current_trace_config = default_trace_config.copy()
+# global timer
+timer_timeout_flag = False
+timer : threading.Timer = None
+
+
+def timeout_callback():
+    global timer_timeout_flag
+    timer_timeout_flag = True
+
+def start_timer(time):
+    global timer, timer_timeout_flag
+    timer_timeout_flag = False
+    timer = threading.Timer(time, timeout_callback)
+
 
 
 
@@ -250,20 +266,23 @@ while True:
                 motor.goRotate(-100, 30)
             
             motor.goDist(250, 50)
-            # to stage 4
-            print("to stage 4")
+            # go to stage 4
+            print("go to stage 4")
             stage = 4
             disable_trace = False
             disable_lidar_trace = True
             current_trace_config = default_trace_config.copy()
             trace_mode = -1
+            # start timer
+            start_timer(15)
     
     # 離開停車
     elif stage == 4:
-        if filted_dir != 0:
-            motor.goDist(50, 30)
-            # to stage 5
-            print("to stage 5")
+        # timeout flag
+        if timer_timeout_flag:
+            timer_timeout_flag = False
+            # go to stage 5
+            print("go to stage 5")
             disable_trace = False
             disable_lidar_trace = True
             trace_mode = 0

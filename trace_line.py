@@ -12,7 +12,7 @@ L_V_high = 255
 
 R_H_low = 0
 R_S_low = 0
-R_V_low = 230
+R_V_low = 240
 R_H_high = 0
 R_S_high = 0
 R_V_high = 255

@@ -34,7 +34,7 @@ current_trace_speed = default_trace_speed
 # single line start time
 single_line_st = 0
 # trace config
-default_trace_config = [150, 170, 2, 3, 1.5]
+default_trace_config = [150, 170, 2, 3, 2]
 current_trace_config = default_trace_config.copy()
 # global timer
 timer_timeout_flag = False
@@ -195,7 +195,7 @@ while True:
 
     # fence process
     fc_frame = img.copy()
-    fence, fc_debug_img = dd.direction_detect(fc_frame)
+    fence, fc_debug_img = fc.fence_detect(fc_frame)
     filted_fc = fc.fence_filt(fence)
 
 
@@ -299,7 +299,7 @@ while True:
     
     # 看柵欄
     elif stage == 5:
-        motor.setSpeed(50, 50)
+        print("stage5 filted_fc: ", filted_fc)
         # fence down
         if filted_fc == -1:
             # go to stage 6
@@ -312,6 +312,7 @@ while True:
 
     # 等柵欄
     elif stage == 6:
+        print("stage6 filted_fc: ", filted_fc)
         # fence up
         if filted_fc == 1:
             # go to stage 7
@@ -352,6 +353,7 @@ while True:
 
         print("trace / lidar /target: ", trace, ' / ', lidar_target, ' / ', target)
         target *= 0.5
+        print("motor: ", current_trace_speed - target, " / ", current_trace_speed + target)
 
         try:
             motor.setSpeed(current_trace_speed - target, current_trace_speed + target)

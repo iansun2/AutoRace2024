@@ -115,7 +115,7 @@ def direction_detect(frame: cv2.UMat):
         contours, hierarchy = filt_by_tree(contours, hierarchy)
         #print("tree valid: ", len(hierarchy))
     except:
-        print("direction err 1")
+        #print("direction err 1")
         return 0, debug_img
     
     #cv2.imshow("orignal", orignal_img)

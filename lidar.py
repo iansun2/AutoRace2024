@@ -5,12 +5,12 @@ mutex = threading.Lock()
 
 lidar_target = 0
 lidar_closest = [0, 0] # dist, angle
-lidar_view = [0, 0]
+lidar_view = [[0, 0]]
 
 def lidar_handler():
     global lidar_target, lidar_closest, lidar_view
 
-    PORT = "/dev/ttyUSB1"
+    PORT = "/dev/ttyUSB0"
     # init Lidar
     lidar = RPLidar(PORT)
     iterator = lidar.iter_scans()
@@ -26,6 +26,7 @@ def lidar_handler():
         try:
             scan = next(iterator)
         except:
+            print('lidar err')
             lidar.stop()
             lidar.disconnect()
             lidar = RPLidar(PORT)
@@ -34,7 +35,6 @@ def lidar_handler():
 
         closest = [1000000, 0]
         view = []
-
         for data in scan:
             deg = data[1]
             dist = data[2]
@@ -74,7 +74,9 @@ def get_lidar_closest():
 
 def get_lidar_view():
     mutex.acquire()
+    #print(lidar_view)
     val = lidar_view.copy()
+    #print(val)
     mutex.release()
     return val
 
@@ -91,9 +93,10 @@ if __name__ == '__main__':
 
     while 1:
         err = get_lidar_target()
-        print("error: ", err)
+        #print("error: ", err)
         closest = get_lidar_closest()
-        print("closest: ", closest)
+        #print("closest: ", closest)
+        pass
 
 
 

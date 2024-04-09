@@ -25,9 +25,7 @@ upper_R = np.array([R_H_high,R_S_high,R_V_high])
 lower_L = np.array([L_H_low,L_S_low,L_V_low])
 upper_L = np.array([L_H_high,L_S_high,L_V_high])
 
-#紅綠燈遮罩
-low_G = np.array([35,90,90])
-up_G = np.array([85,255,255])
+
 
 
 # 採樣間距

@@ -81,6 +81,9 @@ atexit.register(exit_handler)
 
 # 看紅綠燈
 def HoughCircles():
+    #紅綠燈遮罩
+    low_G = np.array([35,90,90])
+    up_G = np.array([85,255,255])
 
     # 回傳值(0=沒看到綠燈,1=有看到綠燈)
     look_green = 0
@@ -363,8 +366,6 @@ while True:
             pass
 
 
-
-
     # 輸出原圖&成果
     if time.time() - print_img_time > 0.2:
         cv2.imshow("img", tl_debug_img)
@@ -376,8 +377,6 @@ while True:
         print_img_time = time.time()
 
 
-     
-
     k=cv2.waitKey(1)
     if k==ord('q'):
         cv2.destroyAllWindows()
@@ -385,8 +384,6 @@ while True:
         break
 
     #print(time.time())
-
-
 
 cap.release()
 cv2.destroyAllWindows()

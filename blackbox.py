@@ -6,35 +6,55 @@ from matplotlib.patches import Polygon
 import math as m
 import lidar as ld
 
+fig, ax = plt.subplots(1,1)
 
 center = 5000
+half_edge_length = 2000
+area_ref = 4e6
+area_tol = 1e6
 
 def get_map():
+    global ax, fig
+
     view = ld.get_lidar_view()
     points = []
     for data in view:
+        #print(data)
         dist = data[1]
-        rad = m.radians(data[0] + 90)
-        x = dist * m.cos(rad) + center
-        y = center - dist * m.sin(rad)
-        points.append(int(x), int(y))
+        if dist < 2500:
+            rad = m.radians(data[0] + 90)
+            x = dist * m.cos(rad) + center
+            y = center - dist * m.sin(rad)
+            points.append([int(x), int(y)])
 
-    points = cv2.convexHull(points)
+    ax.cla()
+    ax.axis([center - half_edge_length, center + half_edge_length, center - half_edge_length, center + half_edge_length])
+
+    points = np.array(points)
+    raw_points = np.transpose(points)
+
+    points = cv2.approxPolyDP(points, 50, True)
+    approx_points = np.transpose(points)
+    
+
+    #points = cv2.convexHull(points)
     box = cv2.minAreaRect(points)
-    box = np.int0(cv2.boxPoints(box))
-
-    plt.clf()
-    plt.axis([0,10000,0,10000])
-
-    plt_point = np.transpose(np.array(points))
-
-    polygon1 = Polygon(points)
-    fig, ax = plt.subplots(1,1)
+    box = np.intp(cv2.boxPoints(box))
+    area = cv2.contourArea(box)
+    print(area)
+    if area > area_ref + area_tol or area < area_ref - area_tol:
+        print('area err')
+        return
+    #print(box)
+    
+    polygon1 = Polygon(box, True)
     ax.add_patch(polygon1)
-    plt.scatter([0], [0], color="red")
+    ax.scatter([center], [center], color="red")
+
+    ax.scatter(approx_points[0], approx_points[1], color="green")
 
     plt.draw()
-    plt.pause(0.001)
+    plt.pause(0.1)
 
 
 
@@ -42,3 +62,6 @@ def get_map():
 if __name__ == "__main__":
     plt.ion()
     plt.show()
+    while 1:
+        get_map()
+

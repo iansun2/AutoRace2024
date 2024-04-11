@@ -6,12 +6,15 @@ from matplotlib.patches import Polygon
 import math as m
 import lidar as ld
 
+
 fig, ax = plt.subplots(1,1)
+
 
 center = 5000
 half_edge_length = 2000
 area_ref = 4e6
 area_tol = 1e6
+
 
 def get_map():
     global ax, fig
@@ -37,15 +40,16 @@ def get_map():
     approx_points = np.transpose(points)
     
 
-    #points = cv2.convexHull(points)
     box = cv2.minAreaRect(points)
     box = np.intp(cv2.boxPoints(box))
     area = cv2.contourArea(box)
-    print(area)
+    
     if area > area_ref + area_tol or area < area_ref - area_tol:
-        print('area err')
+        print('area err: ', area)
         return
-    #print(box)
+    else:
+        print('area ok: ', area)
+
     
     polygon1 = Polygon(box, True)
     ax.add_patch(polygon1)

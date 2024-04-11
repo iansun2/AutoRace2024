@@ -5,10 +5,10 @@ mutex = threading.Lock()
 
 lidar_target = 0
 lidar_closest = [0, 0] # dist, angle
-lidar_view = [[0, 0]]
+lidar_deg_view = [0] * 360
 
 def lidar_handler():
-    global lidar_target, lidar_closest, lidar_view
+    global lidar_target, lidar_closest, lidar_deg_view
 
     PORT = "/dev/ttyUSB0"
     # init Lidar
@@ -34,7 +34,11 @@ def lidar_handler():
             continue
 
         closest = [1000000, 0]
-        view = []
+
+        deg_view = [0] * 360
+        deg_data_cnt = 0
+        last_deg = -1000
+        insert_list = []
         for data in scan:
             deg = data[1]
             dist = data[2]
@@ -47,14 +51,61 @@ def lidar_handler():
                     err += (deg - r_edge) * (dist - filt_dist)
                 elif deg < l_edge:
                     err += (deg - l_edge) * (dist - filt_dist)
+
+            # deg as index            
+            deg = int(deg)
+
+            # new scan, update deg
+            if last_deg == -1000:
+                last_deg = deg
+            # new data, calculate last deg
+            elif last_deg != deg:
+                deg_view[last_deg] /= deg_data_cnt
+                deg_data_cnt = 0
+                # need insert
+                if deg - last_deg != 1:
+                    insert_list.append([last_deg, deg])
+                last_deg = deg
+                
+            # count data in this deg
+            deg_data_cnt += 1
             
-            view.append([deg, dist])
+            # first data in this deg
+            if deg_data_cnt == 1:
+                deg_view[deg] = dist
+            # other sample in this deg
+            else:
+                deg_view[deg] += dist
+
+            # last data, calculate current deg
+            if data == scan[-1]:
+                deg_view[deg] /= deg_data_cnt
+
+        # insert process
+        for insert in insert_list:
+            delta_deg = insert[1] - insert[0]
+            dist_step = (deg_view[insert[1]] - deg_view[insert[0]]) / delta_deg
+            for deg in range(insert[0]+1, insert[1]):
+                deg_view[deg] = deg_view[deg-1] + dist_step
+
 
         #print("error: ", err * kp)
         mutex.acquire()
         lidar_target = err * kp
         lidar_closest = closest.copy()
-        lidar_view = view.copy()
+
+        start_deg = int(scan[1][1])
+        end_deg = int(scan[-1][1])
+        # normal
+        if end_deg >= start_deg:
+            for deg in range(start_deg, end_deg+1):
+                lidar_deg_view[deg] = deg_view[deg]
+        # round
+        else:
+            for deg in range(start_deg, 360):
+                lidar_deg_view[deg] = deg_view[deg]
+            for deg in range(0, end_deg+1):
+                lidar_deg_view[deg] = deg_view[deg]
         mutex.release()
 
 
@@ -75,7 +126,7 @@ def get_lidar_closest():
 def get_lidar_view():
     mutex.acquire()
     #print(lidar_view)
-    val = lidar_view.copy()
+    val = lidar_deg_view.copy()
     #print(val)
     mutex.release()
     return val

@@ -39,6 +39,7 @@ def lidar_handler():
         deg_data_cnt = 0
         last_deg = -1000
         insert_list = []
+        update_mask = [0] * 360
         for data in scan:
             deg = data[1]
             dist = data[2]
@@ -52,8 +53,9 @@ def lidar_handler():
                 elif deg < l_edge:
                     err += (deg - l_edge) * (dist - filt_dist)
 
-            # deg as index            
+            # deg as index
             deg = int(deg)
+            update_mask[deg] = 1
 
             # new scan, update deg
             if last_deg == -1000:
@@ -65,6 +67,7 @@ def lidar_handler():
                 # need insert
                 if deg - last_deg != 1:
                     insert_list.append([last_deg, deg])
+                    update_mask[last_deg:deg] = [1] * (deg - last_deg)
                 last_deg = deg
                 
             # count data in this deg
@@ -94,17 +97,8 @@ def lidar_handler():
         lidar_target = err * kp
         lidar_closest = closest.copy()
 
-        start_deg = int(scan[1][1])
-        end_deg = int(scan[-1][1])
-        # normal
-        if end_deg >= start_deg:
-            for deg in range(start_deg, end_deg+1):
-                lidar_deg_view[deg] = deg_view[deg]
-        # round
-        else:
-            for deg in range(start_deg, 360):
-                lidar_deg_view[deg] = deg_view[deg]
-            for deg in range(0, end_deg+1):
+        for deg in range(0, 360):
+            if update_mask[deg]:
                 lidar_deg_view[deg] = deg_view[deg]
         mutex.release()
 

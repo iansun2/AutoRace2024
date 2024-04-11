@@ -21,11 +21,11 @@ def get_map():
 
     view = ld.get_lidar_view()
     points = []
-    for data in view:
+    for deg in range(0, 360):
         #print(data)
-        dist = data[1]
+        dist = view[deg]
         if dist < 2500:
-            rad = m.radians(data[0] + 90)
+            rad = m.radians(deg + 90)
             x = dist * m.cos(rad) + center
             y = center - dist * m.sin(rad)
             points.append([int(x), int(y)])

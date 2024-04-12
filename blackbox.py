@@ -5,9 +5,11 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 import math as m
 import lidar as ld
+from multiprocessing import freeze_support
 
 
-fig, ax = plt.subplots(1,1)
+fig = plt.figure(figsize=(6, 6))
+ax = fig.subplots(1,1)
 
 
 center = 5000
@@ -20,6 +22,7 @@ def get_map():
     global ax, fig
 
     view = ld.get_lidar_view()
+    #print(np.array(view))
     points = []
     for deg in range(0, 360):
         #print(data)
@@ -45,10 +48,11 @@ def get_map():
     area = cv2.contourArea(box)
     
     if area > area_ref + area_tol or area < area_ref - area_tol:
-        print('area err: ', area)
+        #print('area err: ', area)
         return
     else:
-        print('area ok: ', area)
+        #print('area ok: ', area)
+        pass
 
     
     polygon1 = Polygon(box, True)
@@ -58,12 +62,14 @@ def get_map():
     ax.scatter(approx_points[0], approx_points[1], color="green")
 
     plt.draw()
-    plt.pause(0.1)
+    plt.pause(1)
 
 
 
 # main
 if __name__ == "__main__":
+    #freeze_support()
+    ld.start_lidar()
     plt.ion()
     plt.show()
     while 1:

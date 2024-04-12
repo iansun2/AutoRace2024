@@ -34,27 +34,37 @@ current_trace_speed = default_trace_speed
 # single line start time
 single_line_st = 0
 # trace config [single_line_dist_L, single_line_dist_R, single_line_kp_L, single_line_kp_R, two_line_kp]
-default_trace_config = [170, 200, 3.5, 4.5, 2]
+default_trace_config = [200, 200, 5, 4.5, 2]
 current_trace_config = default_trace_config.copy()
 # global timer
 timer_timeout_flag = False
-timer : threading.Timer = None
+timer_start_time = 0
+timer_start = False
+timer_timeout = 1
+
+def timer_handle():
+    global timer_timeout_flag, timer_start, timer_start_time, timer_timeout
+    #print('timer handle', time.time() - timer_start_time)
+    if timer_start and time.time() - timer_start_time > timer_timeout:
+        print('end timer')
+        timer_timeout_flag = True
+        timer_start = False
 
 
-def timeout_callback():
-    global timer_timeout_flag
-    timer_timeout_flag = True
 
-def start_timer(time):
-    global timer, timer_timeout_flag
+def start_timer(t):
+    global timer_timeout_flag, timer_start_time, timer_start, timer_timeout
+    print('start timer: ', t)
     timer_timeout_flag = False
-    timer = threading.Timer(time, timeout_callback)
+    timer_start = True
+    timer_start_time = time.time()
+    timer_timeout = t
 
 
 
 
 # 相機設定
-cap = cv2.VideoCapture("/dev/video1")
+cap = cv2.VideoCapture("/dev/video0")
 if not cap.isOpened():
 	print("camera err")
 	exit()
@@ -154,7 +164,7 @@ def HoughCircles():
 
         
     #顯示新圖像
-    cv2.imshow('final', gradient)
+    cv2.imshow('final', img)
     cv2.waitKey(1)
 
     return look_green
@@ -184,6 +194,7 @@ current_trace_speed = 300
 print_img_time = time.time() 
 # 正式開始
 while True:
+    timer_handle()
     t = time.time()
 
     # 讀取圖片並轉HSV
@@ -252,11 +263,14 @@ while True:
             motor.setSpeed(0, 0)
             time.sleep(1)
             print("go to stage 3")
+            start_timer(10) # 遠離避障
 
     
     # 停車
     elif stage == 3:
-        if lidar.get_closest()[0] < 450:
+        #print(lidar.get_closest()[0], timer_timeout_flag)
+        if timer_timeout_flag and lidar.get_closest()[0] < 450:
+            timer_timeout_flag = False
             print("enter parking mode: ", lidar.get_closest())
             motor.setSpeed(60, 60)
 
@@ -266,6 +280,7 @@ while True:
                 closest = lidar.get_closest()
                 pass
             print("stop 1")
+            motor.goDist(100, 50)
             motor.setSpeed(0, 0)
             
             # right full
@@ -302,7 +317,7 @@ while True:
             current_trace_config = default_trace_config.copy()
             trace_mode = -1
             # start timer
-            start_timer(15)
+            start_timer(30)
     
     # 離開停車
     elif stage == 4:
@@ -357,7 +372,7 @@ while True:
     # lidar
     if not disable_lidar_trace:
         # get lidar
-        lidar_target = lidar.get_avoidance(config=[180, 500, 10e-4])
+        lidar_target = lidar.get_avoidance(config=[180, 500, 15e-4])
         # draw lidar_target
         cv2.line(tl_debug_img, (320, 360), (320 - lidar_target, 280), color=(100, 100, 200), thickness=3)
     else:
@@ -370,12 +385,12 @@ while True:
         # draw target
         cv2.line(tl_debug_img, (320, 360), (320 - target, 280), color=(200, 200, 200), thickness=3)
 
-        print("trace / lidar /target: ", trace, ' / ', lidar_target, ' / ', target)
+        #print("trace / lidar /target: ", trace, ' / ', lidar_target, ' / ', target)
         target *= 0.5
         #print("motor: ", current_trace_speed - target, " / ", current_trace_speed + target)
 
         try:
-            if time.time() - start_time > 3:
+            if time.time() - start_time > 5:
                 motor.setSpeed(current_trace_speed - target, current_trace_speed + target)
                 pass
         except:

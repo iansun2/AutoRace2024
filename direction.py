@@ -144,7 +144,7 @@ def direction_detect(frame: cv2.UMat):
         return -1, post_img
 
     valid_obj = filt_by_points(valid_obj, debug_img)
-    print('point count valid: ', len(valid_obj))
+    #print('point count valid: ', len(valid_obj))
 
     valid_obj = select_smallest(valid_obj)
     if(valid_obj == {}):
@@ -192,7 +192,7 @@ def direction_detect(frame: cv2.UMat):
     return dir, debug_img
 
 
-sample_dur = 1
+sample_dur = 0.5
 last_sample_start = time.time()
 samples = [0, 0, 0]
 filt_threshold = 0.5
@@ -229,7 +229,7 @@ if __name__ == "__main__":
     set_mode2()
     
     if car_test:
-        cap = cv2.VideoCapture("/dev/video1")
+        cap = cv2.VideoCapture("/dev/video0")
         if not cap.isOpened():
             print("camera err")
             exit()

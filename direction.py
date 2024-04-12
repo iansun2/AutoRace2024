@@ -6,9 +6,22 @@ import time
 low_mask = np.array([92, 100, 180])
 high_mask = np.array([163, 255, 255])
 
+
+mode2 = False
+
+def set_mode2():
+    global mode2, low_mask, high_mask
+    mode2 = True
+    low_mask = np.array([85, 60, 120])
+    high_mask = np.array([115, 255, 255])
+
+
 def frame_preprocess(frame: cv2.Mat) -> cv2.Mat:
-    frame = cv2.resize(frame, (500, 500), interpolation=cv2.INTER_AREA)
-    frame = frame[0:500, 100:400]
+    frame = cv2.resize(frame, (1000, 1000), interpolation=cv2.INTER_AREA)
+    if(mode2):
+        frame = frame[0:500, 500:1000]
+    else:
+        frame = frame[0:500, 200:800]
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     img = cv2.inRange(hsv, low_mask, high_mask)
     kernel_size = 5
@@ -125,10 +138,13 @@ def direction_detect(frame: cv2.UMat):
     #cv2.imshow("post", post_img)
 
     valid_obj = filt_by_arc_length(contours)
-    #print('arc length valid: ', len(valid_obj))
+    print('arc length valid: ', len(valid_obj))
+
+    if len(valid_obj) >= 2 and mode2:
+        return -1, post_img
 
     valid_obj = filt_by_points(valid_obj, debug_img)
-    #print('point count valid: ', len(valid_obj))
+    print('point count valid: ', len(valid_obj))
 
     valid_obj = select_smallest(valid_obj)
     if(valid_obj == {}):
@@ -210,9 +226,10 @@ def dir_filt(dir):
 #### main start ####
 if __name__ == "__main__":
     car_test = True
+    set_mode2()
     
     if car_test:
-        cap = cv2.VideoCapture("/dev/video0")
+        cap = cv2.VideoCapture("/dev/video1")
         if not cap.isOpened():
             print("camera err")
             exit()

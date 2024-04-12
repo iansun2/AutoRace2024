@@ -8,7 +8,7 @@ import time
 
 class Lidar():
     def __init__(self):
-        #self.PORT = "/dev/ttyUSB0"
+        
         self.lidar_deg = multiprocessing.Array('d', [0] * 1000)
         self.lidar_dist = multiprocessing.Array('i', [0] * 1000)
         self.lidar_data_len = multiprocessing.Value('i', 0)
@@ -19,7 +19,9 @@ class Lidar():
 
 
     def _measure(self, mutex, lidar_deg, lidar_dist, lidar_data_len):
-        PORT = "COM9"
+        #PORT = "COM9"
+        PORT = "/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0"
+        #PORT = '/dev/ttyUSB0'
         lidar = RPLidar(PORT)
         lidar.stop()
         iterator = lidar.iter_scans(max_buf_meas=3000)
@@ -78,7 +80,7 @@ class Lidar():
                 elif deg < l_edge:
                     err += (deg - l_edge) * (dist - filt_dist)
         self.mutex.release()
-        return config[2] * err
+        return int(config[2] * err)
 
 
     def get_closest(self) -> list:
@@ -110,7 +112,7 @@ if __name__ == '__main__':
             err = lidar.get_avoidance(config=[120, 500, 5.6e-4])
             #print("error: ", err)
             closest = lidar.get_closest()
-            #print("closest: ", closest)
+            print("closest: ", closest)
             data = lidar.get_angle_data()
             #print(np.array(data))
             last = time.time()

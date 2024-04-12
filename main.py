@@ -12,14 +12,14 @@ import lidar as ld
 import threading
 import fence as fc
 
-
+#np.seterr(all="ignore")
 
 ### Variable ###
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 停車離場, 5: 看柵欄
 # 6: 等柵欄, 
-stage = 5
+stage = 1
 # enable
 disable_trace = False
 disable_lidar_trace = True
@@ -33,8 +33,8 @@ default_trace_speed = 100
 current_trace_speed = default_trace_speed
 # single line start time
 single_line_st = 0
-# trace config
-default_trace_config = [150, 170, 2, 3, 2]
+# trace config [single_line_dist_L, single_line_dist_R, single_line_kp_L, single_line_kp_R, two_line_kp]
+default_trace_config = [170, 200, 3.5, 4.5, 2]
 current_trace_config = default_trace_config.copy()
 # global timer
 timer_timeout_flag = False
@@ -54,7 +54,7 @@ def start_timer(time):
 
 
 # 相機設定
-cap = cv2.VideoCapture("/dev/video0")
+cap = cv2.VideoCapture("/dev/video1")
 if not cap.isOpened():
 	print("camera err")
 	exit()
@@ -68,7 +68,8 @@ cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
 
 # init motor
 motor = mctrl.init_motor()
-
+# init lidar
+lidar = ld.Lidar()
 
 def exit_handler():
     motor.setSpeed(0, 0)
@@ -76,63 +77,6 @@ def exit_handler():
     #lidar.disconnect()
 
 atexit.register(exit_handler)
-
-
-
-# 看紅綠燈
-def HoughCircles():
-    #紅綠燈遮罩
-    low_G = np.array([35,90,90])
-    up_G = np.array([85,255,255])
-
-    # 回傳值(0=沒看到綠燈,1=有看到綠燈)
-    look_green = 0
-
-    # 讀取圖片並轉HSV
-    ret, img = cap.read()
-    hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
-    
-
-    # 遮罩
-    mask_G = cv2.inRange(hsv,low_G,up_G)
-    
-    guess_img = cv2.GaussianBlur(mask_G,(25,25), 0)
-
-    #param1的具體實現，用於邊緣檢測    
-    canny = cv2.Canny(guess_img, 20, 45)
-
-    kernel = np.ones((2,2),np.uint8)
-    gradient = cv2.morphologyEx(canny, cv2.MORPH_GRADIENT, kernel)
-
-
-    #霍夫變換圓檢測
-    circles= cv2.HoughCircles(gradient,cv2.HOUGH_GRADIENT,2,200,param1=45,param2=85,minRadius=1,maxRadius=80)
-
-    
-    final_ing = img.copy()
-    print('no look green light')
-    if (circles) is not None:
-        look_green = 1
-        #根據檢測到圓的信息，畫出每一個圓
-        circles = np.uint16(np.around(circles))
-        for circle in circles[0,:]:
-
-            #坐標行列(就是圓心)
-            x=int(circle[0])
-            y=int(circle[1])
-            #半徑
-            r=int(circle[2])
-            #在原圖用指定顏色圈出圓，參數設定為int所以圈畫存在誤差
-            cv2.circle(final_ing,(x,y),r,(255,0,0),2)
-            cv2.circle(final_ing,(x,y),5,(0,0,255),3)
-
-        
-    #顯示新圖像
-    final_ing = cv2.resize(final_ing,(640,360))
-    cv2.imshow('final',final_ing)
-    cv2.waitKey(1)
-
-    return look_green
 
 
 
@@ -163,14 +107,78 @@ def get_camera():
 
 
 
-# 等待紅綠燈
-# while True:
-#     look_green = HoughCircles()
-#     if look_green==1:
-#         break
+# 看紅綠燈
+def HoughCircles():
+    #紅綠燈遮罩
+    low_G = np.array([35,30,200])
+    up_G = np.array([60,255,255])
+
+    # 回傳值(0=沒看到綠燈,1=有看到綠燈)
+    look_green = 0
+    # 讀取圖片並轉HSV
+    ret, img = get_camera()
+    #img = cv2.resize(img, (500, 500))
+    img = img[0:500, 500:1000]
+    hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+    # 遮罩
+    mask_G = cv2.inRange(hsv,low_G,up_G)
+    guess_img = cv2.GaussianBlur(mask_G,(25,25), 0)
+
+    #param1的具體實現，用於邊緣檢測    
+    canny = cv2.Canny(guess_img, 20, 45)
+    kernel = np.ones((2,2),np.uint8)
+    gradient = cv2.morphologyEx(canny, cv2.MORPH_GRADIENT, kernel)
+    #霍夫變換圓檢測
+    circles= cv2.HoughCircles(gradient,cv2.HOUGH_GRADIENT,1,20,param1=45,param2=20,minRadius=1,maxRadius=80)
+
+    
+    final_img = img.copy()
+    if (circles) is not None:
+        print('green: ', len(circles))
+        look_green = 1
+        #根據檢測到圓的信息，畫出每一個圓
+        circles = np.uint16(np.around(circles))
+        for circle in circles[0,:]:
+
+            #坐標行列(就是圓心)
+            x=int(circle[0])
+            y=int(circle[1])
+            #半徑
+            r=int(circle[2])
+            #在原圖用指定顏色圈出圓，參數設定為int所以圈畫存在誤差
+            cv2.circle(final_img,(x,y),r,(255,0,0),2)
+            cv2.circle(final_img,(x,y),5,(0,0,255),3)
+
+    else:
+        print('no look green light')
+
+        
+    #顯示新圖像
+    cv2.imshow('final', gradient)
+    cv2.waitKey(1)
+
+    return look_green
+
+
+
+
+
 
 while ret is None or img is None:
     pass
+
+start_time = time.time()
+current_trace_speed = 300
+
+
+#等待紅綠燈
+# while True:
+#     look_green = HoughCircles()
+#     time.sleep(0.2)
+#     if look_green==1:
+#         print('pass')
+#         break
+#         pass
 
 
 print_img_time = time.time() 
@@ -185,6 +193,7 @@ while True:
     dd_frame = img.copy()
     dir, dd_debug_img = dd.direction_detect(dd_frame)
     filted_dir = dd.dir_filt(dir)
+    #print(filted_dir)
     # debug
     # dir = 0
 
@@ -209,19 +218,26 @@ while True:
         if filted_dir == -1 and trace_mode == 0:
             single_line_st = time.time()
             trace_mode = -1
+            print("stage 1 to left")
         # right
         elif filted_dir == 1 and trace_mode == 0:
             single_line_st = time.time()
             trace_mode = 1
+            print("stage 1 to right")
         # release
-        elif (time.time() - single_line_st) > 30:
+        elif (time.time() - single_line_st) > 18 and single_line_st:
             #print("release")
             trace_mode = 0
             # to stage 2
             stage = 2
             disable_lidar_trace = False
             disable_trace = False
-        print("trace mode: ", trace_mode)
+            current_trace_speed = 100
+            current_trace_config = [170, 200, 3.5, 4.5, 1.2]
+            dd.set_mode2()
+            print("go to stage 2")
+            #start_timer(20)
+        #print('stage1: ', trace_mode, filted_dir)
 
     # 避障
     elif stage == 2:
@@ -240,14 +256,14 @@ while True:
     
     # 停車
     elif stage == 3:
-        if ld.get_lidar_closest()[0] < 450:
-            print("enter parking mode: ", ld.get_lidar_closest())
+        if lidar.get_closest()[0] < 450:
+            print("enter parking mode: ", lidar.get_closest())
             motor.setSpeed(60, 60)
 
-            closest = ld.get_lidar_closest()
+            closest = lidar.get_closest()
             while closest[1] > 280 or closest[1] < 80 or (closest[1] > 100 and closest[1] < 260):
                 #print(ld.get_lidar_closest())
-                closest = ld.get_lidar_closest()
+                closest = lidar.get_closest()
                 pass
             print("stop 1")
             motor.setSpeed(0, 0)
@@ -341,7 +357,7 @@ while True:
     # lidar
     if not disable_lidar_trace:
         # get lidar
-        lidar_target = ld.get_lidar_target()
+        lidar_target = lidar.get_avoidance(config=[180, 500, 10e-4])
         # draw lidar_target
         cv2.line(tl_debug_img, (320, 360), (320 - lidar_target, 280), color=(100, 100, 200), thickness=3)
     else:
@@ -356,11 +372,12 @@ while True:
 
         print("trace / lidar /target: ", trace, ' / ', lidar_target, ' / ', target)
         target *= 0.5
-        print("motor: ", current_trace_speed - target, " / ", current_trace_speed + target)
+        #print("motor: ", current_trace_speed - target, " / ", current_trace_speed + target)
 
         try:
-            motor.setSpeed(current_trace_speed - target, current_trace_speed + target)
-            pass
+            if time.time() - start_time > 3:
+                motor.setSpeed(current_trace_speed - target, current_trace_speed + target)
+                pass
         except:
             motor = mctrl.init_motor()
             pass
@@ -368,8 +385,8 @@ while True:
 
     # 輸出原圖&成果
     if time.time() - print_img_time > 0.2:
-        cv2.imshow("img", tl_debug_img)
-        #cv2.imshow("dd", dd_debug_img)
+        #cv2.imshow("img", tl_debug_img)
+        cv2.imshow("dd", dd_debug_img)
 
         #cv2.imshow("mask_R", mask_R)
         #cv2.imshow("mask_L", mask_L)

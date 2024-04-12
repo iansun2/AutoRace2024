@@ -91,11 +91,11 @@ def fence_detect(frame: cv2.UMat):
     #debug_img = post_img.copy()
     contours, hierarchy = cv2.findContours(post_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     valid_objs = filt_by_arc_length(contours)
-    print("after arc len filt: ", len(valid_objs))
+    #print("after arc len filt: ", len(valid_objs))
     valid_objs = filt_by_points(valid_objs, debug_img)
-    print("after point filt: ", len(valid_objs))
+    #print("after point filt: ", len(valid_objs))
     valid_objs = filt_by_position(valid_objs, debug_img)
-    print("after position filt: ", len(valid_objs))
+    #print("after position filt: ", len(valid_objs))
     #cv2.imshow("debug2", orignal_img)
 
     # 1: up, 0: none, -1: down

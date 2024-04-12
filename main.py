@@ -245,15 +245,16 @@ while True:
             disable_trace = False
             current_trace_speed = 100
             current_trace_config = [170, 200, 3.5, 4.5, 1.2]
-            dd.set_mode2()
+            #dd.set_mode2()
             print("go to stage 2")
-            #start_timer(20)
+            start_timer(10)
         #print('stage1: ', trace_mode, filted_dir)
 
     # 避障
     elif stage == 2:
         # 看到標誌指向任何一邊
-        if filted_dir != 0:
+        if timer_timeout_flag and lidar.get_closest()[0] > 500:
+            timer_timeout_flag = False
             # to stage 3
             stage = 3
             disable_lidar_trace = True

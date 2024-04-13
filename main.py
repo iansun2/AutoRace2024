@@ -141,7 +141,7 @@ def HoughCircles():
     kernel = np.ones((2,2),np.uint8)
     gradient = cv2.morphologyEx(canny, cv2.MORPH_GRADIENT, kernel)
     #霍夫變換圓檢測
-    circles= cv2.HoughCircles(gradient,cv2.HOUGH_GRADIENT,1,20,param1=45,param2=20,minRadius=1,maxRadius=80)
+    circles= cv2.HoughCircles(gradient,cv2.HOUGH_GRADIENT,1,20,param1=45,param2=20,minRadius=5,maxRadius=80)
 
     
     final_img = img.copy()
@@ -166,7 +166,7 @@ def HoughCircles():
 
         
     #顯示新圖像
-    cv2.imshow('final', img)
+    #cv2.imshow('final', final_img)
     cv2.waitKey(1)
 
     return look_green
@@ -196,13 +196,14 @@ current_trace_speed = 200
 
 
 #等待紅綠燈
-# while True:
-#     look_green = HoughCircles()
-#     time.sleep(0.2)
-#     if look_green==1:
-#         print('pass')
-#         break
-#         pass
+while True:
+    look_green = HoughCircles()
+    time.sleep(0.2)
+    if look_green==1:
+        print('pass')
+        #time.sleep(7)
+        break
+        pass
 
 
 print_img_time = time.time() 
@@ -263,7 +264,7 @@ while True:
                 trace_mode = 1
                 print("stage 1 to right")
             # release
-            elif (time.time() - single_line_st) > 25 and single_line_st:
+            elif (time.time() - single_line_st) > 15 and single_line_st:
                 #print("release")
                 # to stage 2
                 print("go to stage 2")
@@ -274,7 +275,7 @@ while True:
                 current_trace_speed = 100
                 current_trace_config = [170, 200, 3.5, 4.5, 1.2]
                 common_counter = 0
-                start_timer(25) # 進入避障
+                start_timer(30) # 進入避障
         #print('stage1: ', trace_mode, filted_dir)
 
     # 避障
@@ -361,7 +362,7 @@ while True:
             stage = 5
             disable_trace = False
             disable_lidar_trace = True
-            current_trace_speed = 200
+            current_trace_speed = 150
             current_trace_config = [170, 200, 2.7, 4.5, 1.5]
             trace_mode = 0
     

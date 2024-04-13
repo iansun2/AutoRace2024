@@ -8,7 +8,7 @@ import time
 
 class Lidar():
     def __init__(self):
-        
+        self.last_closest_filt = [1e10, 0]
         self.lidar_deg = multiprocessing.Array('d', [0] * 1000)
         self.lidar_dist = multiprocessing.Array('i', [0] * 1000)
         self.lidar_data_len = multiprocessing.Value('i', 0)
@@ -95,6 +95,27 @@ class Lidar():
         self.mutex.release()
         return copy.deepcopy(closest)
 
+    
+    def get_closest_filt(self, deg, fov) -> list:
+        min_deg = deg - fov / 2
+        max_deg = deg + fov / 2
+
+        self.mutex.acquire()
+        closest = [1e10, 0]
+        filt_dist = 500
+        for idx in range(0, self.lidar_data_len.value):
+            dist = self.lidar_dist[idx]
+            deg = self.lidar_deg[idx]
+            if dist < filt_dist and dist < closest[0] and deg > min_deg and deg < max_deg:
+                closest = [dist, deg]
+        self.mutex.release()
+        if closest[0] == 1e10:
+            return copy.deepcopy(self.last_closest_filt)
+        else:
+            self.last_closest_filt = copy.deepcopy(closest)
+            return copy.deepcopy(closest)
+
+
 
 
 
@@ -111,7 +132,8 @@ if __name__ == '__main__':
         if time.time() - last > 0.3:
             err = lidar.get_avoidance(config=[120, 500, 5.6e-4])
             #print("error: ", err)
-            closest = lidar.get_closest()
+            #closest = lidar.get_closest()
+            closest = lidar.get_closest_filt(180, 60)
             print("closest: ", closest)
             data = lidar.get_angle_data()
             #print(np.array(data))

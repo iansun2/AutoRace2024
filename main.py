@@ -34,13 +34,15 @@ current_trace_speed = default_trace_speed
 # single line start time
 single_line_st = 0
 # trace config [single_line_dist_L, single_line_dist_R, single_line_kp_L, single_line_kp_R, two_line_kp]
-default_trace_config = [200, 200, 5, 4.5, 2]
+default_trace_config = [200, 190, 4, 2.7, 1.5]
 current_trace_config = default_trace_config.copy()
 # global timer
 timer_timeout_flag = False
 timer_start_time = 0
 timer_start = False
 timer_timeout = 1
+# common counter
+common_counter = 0
 
 def timer_handle():
     global timer_timeout_flag, timer_start, timer_start_time, timer_timeout
@@ -178,7 +180,19 @@ while ret is None or img is None:
     pass
 
 start_time = time.time()
-current_trace_speed = 300
+current_trace_speed = 200
+
+
+# stage 2 test
+# stage = 2
+# trace_mode = 0
+# disable_lidar_trace = False
+# disable_trace = False
+# current_trace_speed = 100
+# current_trace_config = [170, 200, 3.5, 4.5, 1.2]
+# common_counter = 0
+# start_timer(25) # 進入避障
+
 
 
 #等待紅綠燈
@@ -224,39 +238,56 @@ while True:
 
     # 左右岔路
     if stage == 1:
-        # direction to trace mode
-        # left
-        if filted_dir == -1 and trace_mode == 0:
-            single_line_st = time.time()
-            trace_mode = -1
-            print("stage 1 to left")
-        # right
-        elif filted_dir == 1 and trace_mode == 0:
-            single_line_st = time.time()
-            trace_mode = 1
-            print("stage 1 to right")
-        # release
-        elif (time.time() - single_line_st) > 18 and single_line_st:
-            #print("release")
-            trace_mode = 0
-            # to stage 2
-            stage = 2
-            disable_lidar_trace = False
-            disable_trace = False
-            current_trace_speed = 100
-            current_trace_config = [170, 200, 3.5, 4.5, 1.2]
-            #dd.set_mode2()
-            print("go to stage 2")
-            start_timer(10)
+        if not timer_timeout_flag and not timer_start and filted_dir != 0:
+            print('stop an wait')
+            motor.setSpeed(0, 0)
+            motor.goDist(-50, 100)
+            disable_drive = True
+            start_timer(2)
+        
+        if timer_timeout_flag:
+            print('static dir mode')
+            # direction to trace mode
+            # left
+            if filted_dir == -1 and trace_mode == 0:
+                motor.goRotate(-30, 100)
+                disable_drive = False
+                single_line_st = time.time()
+                trace_mode = -1
+                print("stage 1 to left")
+            # right
+            elif filted_dir == 1 and trace_mode == 0:
+                motor.goRotate(30, 100)
+                disable_drive = False
+                single_line_st = time.time()
+                trace_mode = 1
+                print("stage 1 to right")
+            # release
+            elif (time.time() - single_line_st) > 25 and single_line_st:
+                #print("release")
+                # to stage 2
+                print("go to stage 2")
+                stage = 2
+                trace_mode = 0
+                disable_lidar_trace = False
+                disable_trace = False
+                current_trace_speed = 100
+                current_trace_config = [170, 200, 3.5, 4.5, 1.2]
+                common_counter = 0
+                start_timer(25) # 進入避障
         #print('stage1: ', trace_mode, filted_dir)
 
     # 避障
     elif stage == 2:
         # 看到標誌指向任何一邊
-        if timer_timeout_flag and lidar.get_closest()[0] > 500:
-            timer_timeout_flag = False
+        print('stage 2:', timer_timeout_flag, lidar.get_closest_filt(225, 260)[0], common_counter)
+        if common_counter < 3 and timer_timeout_flag and lidar.get_closest_filt(225, 260)[0] > 350:
+            common_counter += 1
+        if common_counter >= 3 and timer_timeout_flag:
             # to stage 3
             stage = 3
+            common_counter = 0
+            timer_timeout_flag = False
             disable_lidar_trace = True
             disable_trace = False
             trace_mode = -1
@@ -295,7 +326,7 @@ while True:
                 time.sleep(1)
                 print("leave slot")
                 motor.goDist(park_dist, park_speed)
-                motor.goRotate(100, 30)
+                motor.goRotate(90, 30)
             # left full
             else:
                 park_dist = 250
@@ -307,18 +338,18 @@ while True:
                 time.sleep(1)
                 print("leave slot")
                 motor.goDist(park_dist, park_speed)
-                motor.goRotate(-100, 30)
+                motor.goRotate(-90, 30)
             
-            motor.goDist(250, 50)
+            motor.goDist(150, 50)
             # go to stage 4
             print("go to stage 4")
             stage = 4
             disable_trace = False
             disable_lidar_trace = True
-            current_trace_config = default_trace_config.copy()
+            current_trace_config = [200, 200, 2.7, 4.5, 1.2]
             trace_mode = -1
             # start timer
-            start_timer(30)
+            start_timer(15)
     
     # 離開停車
     elif stage == 4:
@@ -330,6 +361,8 @@ while True:
             stage = 5
             disable_trace = False
             disable_lidar_trace = True
+            current_trace_speed = 200
+            current_trace_config = [170, 200, 2.7, 4.5, 1.5]
             trace_mode = 0
     
     # 看柵欄
@@ -392,6 +425,7 @@ while True:
 
         try:
             if time.time() - start_time > 5:
+                #print("motor: ", current_trace_speed - target, " / ", current_trace_speed + target)
                 motor.setSpeed(current_trace_speed - target, current_trace_speed + target)
                 pass
         except:

@@ -3,18 +3,18 @@ import numpy as np
 
 
 # 左右線HSV遮色閥值
-L_H_low = 8
-L_S_low = 8
-L_V_low = 240
+L_H_low = 0
+L_S_low = 0
+L_V_low = 220
 L_H_high = 36
 L_S_high = 80
 L_V_high = 255
 
 R_H_low = 0
 R_S_low = 0
-R_V_low = 240
-R_H_high = 0
-R_S_high = 0
+R_V_low = 235
+R_H_high = 180
+R_S_high = 20
 R_V_high = 255
 
 # 右線遮罩

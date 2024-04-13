@@ -3,8 +3,8 @@ import numpy as np
 import time
 
 
-low_mask = np.array([92, 100, 180])
-high_mask = np.array([163, 255, 255])
+low_mask = np.array([100, 25, 110])
+high_mask = np.array([140, 160, 220])
 
 
 mode2 = False
@@ -21,7 +21,7 @@ def frame_preprocess(frame: cv2.Mat) -> cv2.Mat:
     if(mode2):
         frame = frame[0:500, 500:1000]
     else:
-        frame = frame[0:500, 200:800]
+        frame = frame[0:300, 200:800]
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     img = cv2.inRange(hsv, low_mask, high_mask)
     kernel_size = 5
@@ -131,14 +131,10 @@ def direction_detect(frame: cv2.UMat):
         #print("direction err 1")
         return 0, debug_img
     
-    #cv2.imshow("orignal", orignal_img)
-    #cv2.imshow("test0.5", blur_img)
-    #cv2.imshow("test1", canny_img)
-    #cv2.imshow("test1.5", dilate_img)
     #cv2.imshow("post", post_img)
 
     valid_obj = filt_by_arc_length(contours)
-    print('arc length valid: ', len(valid_obj))
+    #print('arc length valid: ', len(valid_obj))
 
     if len(valid_obj) >= 2 and mode2:
         return -1, post_img
@@ -192,7 +188,7 @@ def direction_detect(frame: cv2.UMat):
     return dir, debug_img
 
 
-sample_dur = 0.5
+sample_dur = 1
 last_sample_start = time.time()
 samples = [0, 0, 0]
 filt_threshold = 0.5
@@ -226,7 +222,7 @@ def dir_filt(dir):
 #### main start ####
 if __name__ == "__main__":
     car_test = True
-    set_mode2()
+    #set_mode2()
     
     if car_test:
         cap = cv2.VideoCapture("/dev/video0")

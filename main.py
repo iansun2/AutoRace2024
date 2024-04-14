@@ -66,7 +66,7 @@ def start_timer(t):
 
 
 # 相機設定
-cap = cv2.VideoCapture("/dev/video0")
+cap = cv2.VideoCapture("/dev/video1")
 if not cap.isOpened():
 	print("camera err")
 	exit()
@@ -196,15 +196,16 @@ current_trace_speed = 200
 
 
 #等待紅綠燈
-while True:
-    look_green = HoughCircles()
-    time.sleep(0.2)
-    if look_green==1:
-        print('pass')
-        #time.sleep(7)
-        break
-        pass
+# while True:
+#     look_green = HoughCircles()
+#     time.sleep(0.2)
+#     if look_green==1:
+#         print('pass')
+#         #time.sleep(7)
+#         break
+#         pass
 
+# motor.goDist(100, 100)
 
 print_img_time = time.time() 
 # 正式開始
@@ -248,6 +249,7 @@ while True:
         
         if timer_timeout_flag:
             print('static dir mode')
+            #filted_dir = -1 # for 0413 race, -------[NEED REMOVE]--------
             # direction to trace mode
             # left
             if filted_dir == -1 and trace_mode == 0:
@@ -294,7 +296,7 @@ while True:
             trace_mode = -1
             current_trace_config = [190, 170, 2, 3, 1.5]
             motor.setSpeed(0, 0)
-            time.sleep(1)
+            #time.sleep(1)
             print("go to stage 3")
             start_timer(10) # 遠離避障
 
@@ -436,8 +438,8 @@ while True:
 
     # 輸出原圖&成果
     if time.time() - print_img_time > 0.2:
-        #cv2.imshow("img", tl_debug_img)
-        cv2.imshow("dd", dd_debug_img)
+        cv2.imshow("img", tl_debug_img)
+        #cv2.imshow("dd", dd_debug_img)
 
         #cv2.imshow("mask_R", mask_R)
         #cv2.imshow("mask_L", mask_L)

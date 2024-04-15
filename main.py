@@ -66,7 +66,7 @@ def start_timer(t):
 
 
 # 相機設定
-cap = cv2.VideoCapture("/dev/video1")
+cap = cv2.VideoCapture("/dev/video0")
 if not cap.isOpened():
 	print("camera err")
 	exit()
@@ -100,7 +100,7 @@ ret = None
 img = None
 new_img_flag = False
 def camera_handler():
-    global ret, img
+    global ret, img, new_img_flag
     while(1):
         _ret, _img = cap.read()
         mutex_camera.acquire()
@@ -119,6 +119,7 @@ def get_camera():
     return _ret, _img
 
 def is_new_img():
+    global new_img_flag
     mutex_camera.acquire()
     value = new_img_flag
     new_img_flag = False
@@ -181,13 +182,17 @@ def HoughCircles():
     return look_green
 
 
-
+last_print = 0
 
 def get_trace(trace_mode, sl_dist, sl_kp, tl_kp) -> int:
+    global last_print
     trace_config = [sl_dist[0], sl_dist[1], sl_kp[0], sl_kp[1], tl_kp]
     tl_frame = img.copy()
     L_min, R_min, tl_debug_img, mask_L, mask_R = tl.get_trace_value(tl_frame)
     trace = tl.trace_by_mode(trace_mode, L_min, R_min, trace_config)
+    if time.time() - last_print > 0.2:
+        last_print = time.time()
+        cv2.imshow('test', tl_debug_img)
     return trace
 
 
@@ -210,6 +215,16 @@ while ret is None or img is None:
     pass
 time.sleep(5)
 run_start_time = time.time()
+print('run start')
+
+#test
+while(1):
+    if is_new_img():
+        print('new img')
+        trace = get_trace(trace_mode=0, sl_dist=(200, 190), sl_kp=(4, 2.7), tl_kp=1.5) # two line
+        if tl.fork_flag:
+            print('fork!')
+            tl.fork_flag = False
 
 
 ########[等待紅綠燈]########

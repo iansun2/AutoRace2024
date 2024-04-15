@@ -161,6 +161,8 @@ def get_trace_value(img : cv2.UMat):
         cv2.circle(img, tuple(point[0]), 3, color=(255, 0, 200), thickness=3)
 
     # Fork Detect
+    print('L:', L_min_300 - L_min_240, L_min_240 - L_min_180, L_min_180 - L_min_140)
+    print('R:', R_min_140 - R_min_180, R_min_180 - R_min_240, R_min_240 - R_min_300)
     if L_min_300 - L_min_240 > 20 and L_min_240 - L_min_180 > 20 and L_min_180 - L_min_140 > 20:
         if R_min_140 - R_min_180 > 20 and R_min_180 - R_min_240 > 20 and R_min_240 - R_min_300 > 20:
             print('[Debug] Fork')

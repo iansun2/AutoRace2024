@@ -11,6 +11,7 @@ from rplidar import RPLidar
 import lidar as ld
 import threading
 import fence as fc
+import copy
 
 #np.seterr(all="ignore")
 
@@ -92,7 +93,7 @@ atexit.register(exit_handler)
 
 
 
-
+last_print = 0
 
 # Camera
 mutex_camera = threading.Lock()
@@ -113,8 +114,8 @@ camera_thread.start()
 
 def get_camera():
     mutex_camera.acquire()
-    _ret = ret
-    _img = img
+    _ret = copy.deepcopy(ret)
+    _img = copy.deepcopy(img)
     mutex_camera.release()
     return _ret, _img
 
@@ -182,7 +183,7 @@ def HoughCircles():
     return look_green
 
 
-last_print = 0
+
 
 def get_trace(trace_mode, sl_dist, sl_kp, tl_kp) -> int:
     global last_print
@@ -191,12 +192,14 @@ def get_trace(trace_mode, sl_dist, sl_kp, tl_kp) -> int:
     L_min, R_min, tl_debug_img, mask_L, mask_R = tl.get_trace_value(tl_frame)
     trace = tl.trace_by_mode(trace_mode, L_min, R_min, trace_config)
     if time.time() - last_print > 0.2:
+        cv2.imshow('ggez', tl_debug_img)
         last_print = time.time()
-        cv2.imshow('test', tl_debug_img)
+        key = cv2.waitKey(50) & 0xFF
     return trace
 
 
 def set_motor(trace, lidar, speed):
+    global motor
     target = (trace + lidar) * 0.5
     try:
         #print("motor: ", current_trace_speed - target, " / ", current_trace_speed + target)
@@ -208,6 +211,16 @@ def set_motor(trace, lidar, speed):
 
 
 
+# #test
+# while(1):
+#     if new_img_flag:
+#         ret, img = get_camera()
+#         trace = get_trace(trace_mode=0, sl_dist=(200, 190), sl_kp=(4, 2.7), tl_kp=1.5) # two line
+#         if tl.fork_flag:
+#             print('fork!')
+#             tl.fork_flag = False
+
+
 
 ########[主程式]########
 
@@ -217,14 +230,6 @@ time.sleep(5)
 run_start_time = time.time()
 print('run start')
 
-#test
-while(1):
-    if is_new_img():
-        print('new img')
-        trace = get_trace(trace_mode=0, sl_dist=(200, 190), sl_kp=(4, 2.7), tl_kp=1.5) # two line
-        if tl.fork_flag:
-            print('fork!')
-            tl.fork_flag = False
 
 
 ########[等待紅綠燈]########
@@ -249,8 +254,8 @@ if stage == 1:
     # go to fork
     while(not tl.fork_flag):
         if is_new_img():
-            trace = get_trace(trace_mode=0, sl_dist=(200, 190), sl_kp=(4, 2.7), tl_kp=1.5) # two line
-            set_motor(trace=trace, lidar=0, speed=200) #
+            trace = get_trace(trace_mode=0, sl_dist=(200, 190), sl_kp=(4, 2.7), tl_kp=2.3) # two line
+            set_motor(trace=trace, lidar=0, speed=300)
     print('[Info] stage 1 <fork>: ', time.time() - run_start_time)
     # wait camera stable
     set_motor(trace=0, lidar=0, speed=0) # stop motor
@@ -258,7 +263,7 @@ if stage == 1:
     # look sign direction
     img_cnt = 0
     dir_samples = [0, 0, 0] # left none right
-    while img_cnt < 10: # 10 samples
+    while img_cnt < 20: # 20 samples
         if is_new_img():
             img_cnt += 1
             dd_frame = img.copy()
@@ -281,15 +286,17 @@ if stage == 1:
     elif max_cnt_idx == 0:
         print('[Info] stage 1 dir Left')
         motor.goRotate(-30, 100)
+        motor.setSpeed(100, 100)
         go_dir_time = time.time()
         while time.time() - go_dir_time < 10: # trace left 10 sec
             if is_new_img():
                 trace = get_trace(trace_mode=-1, sl_dist=(200, 190), sl_kp=(4, 2.7), tl_kp=1.5) # left line
                 set_motor(trace=trace, lidar=0, speed=200)
     # most right:
-    elif max_cnt_idx == 0:
+    elif max_cnt_idx == 2:
         print('[Info] stage 1 dir Right')
         motor.goRotate(30, 100)
+        motor.setSpeed(100, 100)
         go_dir_time = time.time()
         while time.time() - go_dir_time < 10: # trace right 10 sec
             if is_new_img():

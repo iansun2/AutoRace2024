@@ -174,8 +174,8 @@ if __name__ == '__main__':
     # time.sleep(2)
     #motor.setSpeed(0, 0)
     #time.sleep(1)
-    motor.goDist(50, 50)
-    motor.goDist(-50, 50)
+    #motor.goDist(50, 50)
+    #motor.goDist(-50, 50)
     #motor.goRotate(90, 50)
     #motor.goRotate(-90, 50)
     

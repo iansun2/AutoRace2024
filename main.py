@@ -98,6 +98,7 @@ atexit.register(exit_handler)
 mutex_camera = threading.Lock()
 ret = None
 img = None
+new_img_flag = False
 def camera_handler():
     global ret, img
     while(1):
@@ -105,6 +106,7 @@ def camera_handler():
         mutex_camera.acquire()
         ret = _ret
         img = _img
+        new_img_flag = True
         mutex_camera.release()
 camera_thread = threading.Thread(target=camera_handler)
 camera_thread.start()
@@ -115,6 +117,13 @@ def get_camera():
     _img = img
     mutex_camera.release()
     return _ret, _img
+
+def is_new_img():
+    mutex_camera.acquire()
+    value = new_img_flag
+    new_img_flag = False
+    mutex_camera.release()
+    return value
 
 
 
@@ -174,38 +183,152 @@ def HoughCircles():
 
 
 
+def get_trace(trace_mode, sl_dist, sl_kp, tl_kp) -> int:
+    trace_config = [sl_dist[0], sl_dist[1], sl_kp[0], sl_kp[1], tl_kp]
+    tl_frame = img.copy()
+    L_min, R_min, tl_debug_img, mask_L, mask_R = tl.get_trace_value(tl_frame)
+    trace = tl.trace_by_mode(trace_mode, L_min, R_min, trace_config)
+    return trace
 
+
+def set_motor(trace, lidar, speed):
+    target = (trace + lidar) * 0.5
+    try:
+        #print("motor: ", current_trace_speed - target, " / ", current_trace_speed + target)
+        motor.setSpeed(speed - target, speed + target)
+        pass
+    except:
+        motor = mctrl.init_motor()
+        pass
+
+
+
+
+########[主程式]########
 
 while ret is None or img is None:
     pass
-
-start_time = time.time()
-current_trace_speed = 200
-
-
-# stage 2 test
-# stage = 2
-# trace_mode = 0
-# disable_lidar_trace = False
-# disable_trace = False
-# current_trace_speed = 100
-# current_trace_config = [170, 200, 3.5, 4.5, 1.2]
-# common_counter = 0
-# start_timer(25) # 進入避障
+time.sleep(5)
+run_start_time = time.time()
 
 
+########[等待紅綠燈]########
+if stage == 0:
+    print('[Stage] start stage 0: ', time.time() - run_start_time)
+    while True:
+        look_green = HoughCircles()
+        time.sleep(0.2)
+        if look_green == 1:
+            print('pass')
+            #time.sleep(7)
+            break
+            pass
+    print('[Stage] end stage 0: ', time.time() - run_start_time)
+    stage = 1
 
-#等待紅綠燈
-# while True:
-#     look_green = HoughCircles()
-#     time.sleep(0.2)
-#     if look_green==1:
-#         print('pass')
-#         #time.sleep(7)
-#         break
-#         pass
 
-# motor.goDist(100, 100)
+
+########[左右岔路]########
+if stage == 1:
+    print('[Stage] start stage 1: ', time.time() - run_start_time)
+    # go to fork
+    while(not tl.fork_flag):
+        if is_new_img():
+            trace = get_trace(trace_mode=0, sl_dist=(200, 190), sl_kp=(4, 2.7), tl_kp=1.5) # two line
+            set_motor(trace=trace, lidar=0, speed=200) #
+    print('[Info] stage 1 <fork>: ', time.time() - run_start_time)
+    # wait camera stable
+    set_motor(trace=0, lidar=0, speed=0) # stop motor
+    time.sleep(1) # wait 1 sec to stable
+    # look sign direction
+    img_cnt = 0
+    dir_samples = [0, 0, 0] # left none right
+    while img_cnt < 10: # 10 samples
+        if is_new_img():
+            img_cnt += 1
+            dd_frame = img.copy()
+            dir, dd_debug_img = dd.direction_detect(dd_frame)
+            dir_samples[dir+1] += 1
+    # get most dir
+    max_cnt = 0
+    max_cnt_idx = 0
+    for idx in range(0, 3):
+        if dir_samples[idx] > max_cnt:
+            max_cnt = dir_samples[idx]
+            max_cnt_idx = idx
+    print('[Info] stage 1 <dir>: ', time.time() - run_start_time)
+    # most none:
+    if max_cnt_idx == 1:
+        print('[Error] stage 1 dir None')
+        while 1:
+            pass
+    # most left:
+    elif max_cnt_idx == 0:
+        print('[Info] stage 1 dir Left')
+        motor.goRotate(-30, 100)
+        go_dir_time = time.time()
+        while time.time() - go_dir_time < 10: # trace left 10 sec
+            if is_new_img():
+                trace = get_trace(trace_mode=-1, sl_dist=(200, 190), sl_kp=(4, 2.7), tl_kp=1.5) # left line
+                set_motor(trace=trace, lidar=0, speed=200)
+    # most right:
+    elif max_cnt_idx == 0:
+        print('[Info] stage 1 dir Right')
+        motor.goRotate(30, 100)
+        go_dir_time = time.time()
+        while time.time() - go_dir_time < 10: # trace right 10 sec
+            if is_new_img():
+                trace = get_trace(trace_mode=1, sl_dist=(200, 190), sl_kp=(4, 2.7), tl_kp=1.5) # right line
+                set_motor(trace=trace, lidar=0, speed=200)
+    # two line trace to stage 2
+    print('[Info] stage 1 <two line>: ', time.time() - run_start_time)
+    while 1:
+        if is_new_img():
+            trace = get_trace(trace_mode=0, sl_dist=(200, 190), sl_kp=(4, 2.7), tl_kp=1.5) # two line
+            set_motor(trace=trace, lidar=0, speed=200)
+        dist = lidar.get_closest()
+        if dist < 300:
+            set_motor(trace=0, lidar=0, speed=0) # stop motor
+            break
+    print('[Stage] end stage 1: ', time.time() - run_start_time)
+    stage = 2
+
+
+
+########[避障]########
+if stage == 2:
+    print('[Stage] start stage 2: ', time.time() - run_start_time)
+    # avoidance
+    trace = 0
+    exit_cnt = 0
+    while 1:
+        if is_new_img():
+            trace = get_trace(trace_mode=0, sl_dist=(200, 190), sl_kp=(4, 2.7), tl_kp=1.5) # two line
+        lidar_val = lidar.get_avoidance(fov=180, filt_dist=500, kp=15e-4)
+        set_motor(trace=trace, lidar=0, speed=200)
+        exit_lidar_val = lidar.get_closest_filt(90, 360)[0]
+        if exit_lidar_val > 350:
+            exit_cnt += 1
+        if exit_cnt > 3: # exit need 3 count
+            break
+    print('[Stage] end stage 2: ', time.time() - run_start_time)
+    stage = 3
+
+    
+
+
+print('[End]: ', time.time() - run_start_time)
+while 1:
+    pass
+
+
+
+
+
+
+
+
+
 
 print_img_time = time.time() 
 # 正式開始

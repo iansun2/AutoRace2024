@@ -62,11 +62,9 @@ class Lidar():
         return var
 
     
-    def get_avoidance(self, config: list) -> int: # config: [fov, filt_dist, kp]
-        fov = config[0]
+    def get_avoidance(self, fov, filt_dist, kp) -> int:
         l_edge = fov / 2
         r_edge = 360 - fov / 2
-        filt_dist = config[1]
         err = 0
 
         self.mutex.acquire()
@@ -80,33 +78,28 @@ class Lidar():
                 elif deg < l_edge:
                     err += (deg - l_edge) * (dist - filt_dist)
         self.mutex.release()
-        return int(config[2] * err)
+        return int(kp * err)
 
 
     def get_closest(self) -> list:
         self.mutex.acquire()
         closest = [1e10, 0]
-        filt_dist = 500
         for idx in range(0, self.lidar_data_len.value):
             dist = self.lidar_dist[idx]
             deg = self.lidar_deg[idx]
-            if dist < filt_dist and dist < closest[0]:
+            if dist < closest[0]:
                 closest = [dist, deg]
         self.mutex.release()
         return copy.deepcopy(closest)
 
     
-    def get_closest_filt(self, deg, fov) -> list:
-        min_deg = deg - fov / 2
-        max_deg = deg + fov / 2
-
+    def get_closest_filt(self, min_deg, max_deg) -> list:
         self.mutex.acquire()
         closest = [1e10, 0]
-        filt_dist = 500
         for idx in range(0, self.lidar_data_len.value):
             dist = self.lidar_dist[idx]
             deg = self.lidar_deg[idx]
-            if dist < filt_dist and dist < closest[0] and deg > min_deg and deg < max_deg:
+            if dist < closest[0] and deg > min_deg and deg < max_deg:
                 closest = [dist, deg]
         self.mutex.release()
         if closest[0] == 1e10:

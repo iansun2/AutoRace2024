@@ -1,6 +1,10 @@
 import cv2
 import numpy as np
 
+# flag
+fork_flag = False
+
+
 
 # 左右線HSV遮色閥值
 L_H_low = 0
@@ -37,6 +41,7 @@ W_sampling_4 = 220
 
 
 def get_trace_value(img : cv2.UMat):
+    global fork_flag
     # 左右線X值(需重置)
     R_min_300 = 640
     R_min_240 = 640
@@ -154,6 +159,12 @@ def get_trace_value(img : cv2.UMat):
     for point in pts:
         #print("point: ", point)
         cv2.circle(img, tuple(point[0]), 3, color=(255, 0, 200), thickness=3)
+
+    # Fork Detect
+    if L_min_300 - L_min_240 > 20 and L_min_240 - L_min_180 > 20 and L_min_180 - L_min_140 > 20:
+        if R_min_140 - R_min_180 > 20 and R_min_180 - R_min_240 > 20 and R_min_240 - R_min_300 > 20:
+            print('[Debug] Fork')
+            fork_flag = True
 
 
     L_min = 320-((L_min_300+L_min_240+L_min_180+L_min_140)/4)

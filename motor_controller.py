@@ -152,7 +152,8 @@ class MOTOR_2_WHEEL_MODE(USB_DEVICE):
 
 def init_motor() -> MOTOR_2_WHEEL_MODE:
     motor = MOTOR_2_WHEEL_MODE()
-    motor.usb_initialization(usb='/dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT4TFQFM-if00-port0', baudrate=1000000, protocol_version=2.0)
+    #motor.usb_initialization(usb='/dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT4TFQFM-if00-port0', baudrate=1000000, protocol_version=2.0)
+    motor.usb_initialization(usb='/dev/serial/by-id/usb-ROBOTIS_OpenCR_Virtual_ComPort_in_FS_Mode_FFFFFFFEFFFF-if00', baudrate=1000000, protocol_version=2.0)
     motor.motor_initialization(m1_id=1, m2_id=2)
     motor.setupWheel(65, 158.5, 4.5)
     motor.ping()
@@ -163,7 +164,7 @@ def init_motor() -> MOTOR_2_WHEEL_MODE:
 
 if __name__ == '__main__':
     motor = MOTOR_2_WHEEL_MODE()
-    motor.usb_initialization(usb='/dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT4TFQFM-if00-port0', baudrate=1000000, protocol_version=2.0)
+    motor.usb_initialization(usb='/dev/serial/by-id/usb-ROBOTIS_OpenCR_Virtual_ComPort_in_FS_Mode_FFFFFFFEFFFF-if00', baudrate=1000000, protocol_version=2.0)
     motor.motor_initialization(m1_id=1, m2_id=2)
     motor.setupWheel(65, 158.5, 4.5)
     motor.ping()

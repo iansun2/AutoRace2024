@@ -3,17 +3,12 @@ import numpy as np
 import time
 
 
-low_mask = np.array([100, 25, 110])
-high_mask = np.array([140, 160, 220])
+low_mask = np.array([90, 40, 110])
+high_mask = np.array([140, 160, 230])
 
 
 mode2 = False
 
-def set_mode2():
-    global mode2, low_mask, high_mask
-    mode2 = True
-    low_mask = np.array([85, 60, 120])
-    high_mask = np.array([115, 255, 255])
 
 
 def frame_preprocess(frame: cv2.Mat) -> cv2.Mat:

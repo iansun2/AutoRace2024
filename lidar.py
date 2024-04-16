@@ -93,14 +93,18 @@ class Lidar():
         return copy.deepcopy(closest)
 
     
-    def get_closest_filt(self, min_deg, max_deg) -> list:
+    def get_closest_filt(self, min_deg, max_deg, invert) -> list:
         self.mutex.acquire()
         closest = [1e10, 0]
         for idx in range(0, self.lidar_data_len.value):
             dist = self.lidar_dist[idx]
             deg = self.lidar_deg[idx]
-            if dist < closest[0] and deg > min_deg and deg < max_deg:
-                closest = [dist, deg]
+            if invert:
+                if dist < closest[0] and (deg < min_deg or deg > max_deg):
+                    closest = [dist, deg]
+            else:
+                if dist < closest[0] and deg > min_deg and deg < max_deg:
+                    closest = [dist, deg]
         self.mutex.release()
         if closest[0] == 1e10:
             return copy.deepcopy(self.last_closest_filt)

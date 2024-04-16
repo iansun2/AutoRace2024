@@ -20,7 +20,7 @@ import copy
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 停車離場, 5: 看柵欄
 # 6: 等柵欄, 
-stage = 1
+stage = 3
 # enable
 disable_trace = False
 disable_lidar_trace = True
@@ -192,9 +192,9 @@ def get_trace(trace_mode, sl_dist, sl_kp, tl_kp) -> int:
     L_min, R_min, tl_debug_img, mask_L, mask_R = tl.get_trace_value(tl_frame)
     trace = tl.trace_by_mode(trace_mode, L_min, R_min, trace_config)
     if time.time() - last_print > 0.2:
-        cv2.imshow('ggez', tl_debug_img)
+        cv2.imshow('TraceLine', tl_debug_img)
         last_print = time.time()
-        key = cv2.waitKey(50) & 0xFF
+        key = cv2.waitKey(20) & 0xFF
     return trace
 
 
@@ -268,6 +268,8 @@ if stage == 1:
             img_cnt += 1
             dd_frame = img.copy()
             dir, dd_debug_img = dd.direction_detect(dd_frame)
+            cv2.imshow('Direction', dd_debug_img)
+            key = cv2.waitKey(20) & 0xFF
             dir_samples[dir+1] += 1
     # get most dir
     max_cnt = 0
@@ -328,7 +330,7 @@ if stage == 2:
             trace = get_trace(trace_mode=0, sl_dist=(200, 190), sl_kp=(4, 2.7), tl_kp=1.5) # two line
         lidar_val = lidar.get_avoidance(fov=180, filt_dist=500, kp=15e-4)
         set_motor(trace=trace, lidar=0, speed=200)
-        exit_lidar_val = lidar.get_closest_filt(90, 360)[0]
+        exit_lidar_val = lidar.get_closest_filt(90, 360, False)[0]
         if exit_lidar_val > 350:
             exit_cnt += 1
         if exit_cnt > 3: # exit need 3 count
@@ -338,7 +340,72 @@ if stage == 2:
 
     
 
+########[停車]########
+if stage == 3:
+    print('[Stage] start stage 3: ', time.time() - run_start_time)
+    # single trace until close to 
+    print('[Info] stage 3 <get close>: ', time.time() - run_start_time)
+    left_trace_start = time.time()
+    while 1:
+        if is_new_img():
+            trace = get_trace(trace_mode=-1, sl_dist=(200, 190), sl_kp=(2.2, 2), tl_kp=1.5) # left line
+            set_motor(trace=trace, lidar=0, speed=200)
+        closest = lidar.get_closest_filt(45, 315, True)
+        print(closest)
+        if closest[0] < 450 and time.time() - left_trace_start > 5: # min exit > 5 sec
+            set_motor(trace=0, lidar=0, speed=0) # stop
+            break
 
+    # go forward until wall at left or right
+    print('[Info] stage 3 <final close>: ', time.time() - run_start_time)
+    motor.setSpeed(150, 150)
+    while 1:
+        closest = lidar.get_closest()
+        print(closest)
+        deg = closest[1]
+        if (deg > 85 and deg < 95) or (deg > 265 and deg < 275):
+            set_motor(trace=0, lidar=0, speed=0) # stop
+            break
+    # parking
+    print('[Info] stage 3 <parking>: ', time.time() - run_start_time)
+    closest = lidar.get_closest()
+    motor.goDist(100, 150)
+    # right full
+    if closest[1] < 180:
+        park_dist = 250
+        park_speed = 150
+        print("right full")
+        motor.goRotate(90, park_speed)
+        motor.goDist(-park_dist, park_speed)
+        time.sleep(1)
+        print("leave slot")
+        motor.goDist(park_dist, park_speed)
+        motor.goRotate(90, park_speed)
+    # left full
+    else:
+        park_dist = 250
+        park_speed = 150
+        print("left full")
+        motor.goRotate(-90, park_speed)
+        motor.goDist(-park_dist, park_speed)
+        time.sleep(1)
+        print("leave slot")
+        motor.goDist(park_dist, park_speed)
+        motor.goRotate(-90, park_speed)
+    # go to line
+    motor.goDist(150, 150)
+    # left trace to stage 4
+    left_trace_start = time.time()
+    while 1:
+        if is_new_img():
+            trace = get_trace(trace_mode=-1, sl_dist=(200, 190), sl_kp=(2, 2), tl_kp=1.5) # left line
+            set_motor(trace=trace, lidar=0, speed=150)
+        if time.time() - left_trace_start > 10: # trace 5 sec
+            break
+    print('[Stage] end stage 3: ', time.time() - run_start_time)
+    stage = 4
+
+motor.setSpeed(0, 0)
 print('[End]: ', time.time() - run_start_time)
 while 1:
     pass

@@ -3,10 +3,10 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 
-low_mask = np.array([0, 120, 120])
-high_mask = np.array([10, 255, 255])
+low_mask = np.array([0, 40, 100])
+high_mask = np.array([1, 255, 255])
 
-low_mask2 = np.array([160, 120, 120])
+low_mask2 = np.array([160, 40, 100])
 high_mask2 = np.array([179, 255, 255])
 
 
@@ -174,8 +174,8 @@ if __name__ == "__main__":
         if not cap.isOpened():
             print("camera err")
             exit()
-        cap.set(3,5000)
-        cap.set(4,5000)
+        cap.set(3,1000)
+        cap.set(4,1000)
         cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
     else:
         cap = cv2.VideoCapture(2+cv2.CAP_DSHOW)

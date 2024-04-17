@@ -63,8 +63,9 @@ class Lidar():
 
     
     def get_avoidance(self, fov, filt_dist, kp) -> int:
-        l_edge = fov / 2
-        r_edge = 360 - fov / 2
+        r_edge = fov / 2
+        l_edge = 360 - fov / 2
+        min_deg_delta = 20
         err = 0
 
         self.mutex.acquire()
@@ -73,10 +74,10 @@ class Lidar():
             dist = self.lidar_dist[idx]
             deg = self.lidar_deg[idx]
             if dist < filt_dist:
-                if deg >= r_edge:
-                    err += (deg - r_edge) * (dist - filt_dist)
-                elif deg < l_edge:
-                    err += (deg - l_edge) * (dist - filt_dist)
+                if deg < r_edge:
+                    err += min(deg - r_edge, -min_deg_delta) * (dist - filt_dist)
+                elif deg >= l_edge:
+                    err += -min(l_edge - deg, -min_deg_delta) * (dist - filt_dist)
         self.mutex.release()
         return int(kp * err)
 
@@ -127,12 +128,12 @@ if __name__ == '__main__':
         
         
         if time.time() - last > 0.3:
-            err = lidar.get_avoidance(config=[120, 500, 5.6e-4])
-            #print("error: ", err)
+            err = lidar.get_avoidance(120, 500, 5.6e-4)
+            print("error: ", err)
             #closest = lidar.get_closest()
-            closest = lidar.get_closest_filt(180, 60)
-            print("closest: ", closest)
-            data = lidar.get_angle_data()
+            #closest = lidar.get_closest_filt(180, 60)
+            #print("closest: ", closest)
+            #data = lidar.get_angle_data()
             #print(np.array(data))
             last = time.time()
         

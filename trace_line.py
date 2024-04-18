@@ -68,6 +68,8 @@ def get_trace_value(img : cv2.UMat):
     # 左線遮罩
     mask_L = cv2.inRange(hsv,lower_L,upper_L)
 
+    #cv2.imshow('tl L', mask_L)
+    #cv2.imshow('tl R', mask_R)
 
     # Right
     # Canny邊緣運算
@@ -167,8 +169,8 @@ def get_trace_value(img : cv2.UMat):
         cv2.circle(img, tuple(point[0]), 3, color=(255, 0, 200), thickness=3)
 
     # Fork Detect
-    print('L:', L_min_300 - L_min_240, L_min_240 - L_min_180, L_min_180 - L_min_140) # screen low -> high
-    print('R:', R_min_240 - R_min_300, R_min_180 - R_min_240, R_min_140 - R_min_180)
+    #print('L:', L_min_300 - L_min_240, L_min_240 - L_min_180, L_min_180 - L_min_140) # screen low -> high
+    #print('R:', R_min_240 - R_min_300, R_min_180 - R_min_240, R_min_140 - R_min_180)
     if R_min_140 - R_min_180 >= 0 and L_min_180 - L_min_140 >= 0:
         print('[Debug] Fork')
         fork_flag = True

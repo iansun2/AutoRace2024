@@ -23,16 +23,6 @@ stage = 1
 
 
 
-def stream_send():
-    while True:
-        ret, frame = cap.read()
-        frame = cv2.resize(frame, (640, 480))
-        data = cv2.imencode('.jpg', frame)[1].tobytes()
-        try:
-            connection.write(data)
-        except:
-            break
-
 
 # 相機設定
 cap = cv2.VideoCapture("/dev/video0")
@@ -171,9 +161,9 @@ def get_trace(trace_mode, sl_dist, sl_kp, tl_kp) -> int:
     trace = tl.trace_by_mode(trace_mode, L_min, R_min, trace_config)
     # if time.time() - last_print > 1:
     #     cv2.line(tl_debug_img, (320, 360), (320 - trace, 280), color=(255, 100, 200), thickness=3)
-    #     cv2.imshow('TraceLine', tl_debug_img)
+    cv2.imshow('TraceLine', tl_debug_img)
     #     last_print = time.time()
-    #     key = cv2.waitKey(2) & 0xFF
+    key = cv2.waitKey(2) & 0xFF
     return trace
 
 
@@ -247,8 +237,9 @@ if stage == 1:
     # go to fork
     start_time = time.time()
     while(not tl.fork_flag):
-        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.8) # two line 2
-        set_motor(trace=trace, lidar=0, speed=200)
+        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=0.8) # two line 2
+        set_motor(trace=trace, lidar=0, speed=100)
+        #tl.fork_flag = False
 
     print('[Info] stage 1 <fork>: ', time.time() - run_start_time)
     # wait camera stable
@@ -294,8 +285,8 @@ if stage == 1:
         motor.setSpeed(100, 100)
         go_dir_time = time.time()
         while time.time() - go_dir_time < 18: # trace right 12 sec
-            trace = get_trace(trace_mode=1, sl_dist=(0, 200), sl_kp=(0, 2), tl_kp=0) # right line
-            set_motor(trace=trace, lidar=0, speed=150)
+            trace = get_trace(trace_mode=1, sl_dist=(0, 200), sl_kp=(0, 1), tl_kp=0) # right line
+            set_motor(trace=trace, lidar=0, speed=100)
             
     # two line trace to stage 2
     print('[Info] stage 1 <two line>: ', time.time() - run_start_time)

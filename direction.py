@@ -3,8 +3,8 @@ import numpy as np
 import time
 
 
-low_mask = np.array([90, 40, 110])
-high_mask = np.array([140, 160, 230])
+low_mask = np.array([90, 80, 150])
+high_mask = np.array([140, 200, 255])
 
 
 mode2 = False
@@ -30,6 +30,7 @@ def frame_preprocess(frame: cv2.Mat) -> cv2.Mat:
     erode_img = cv2.erode(dilate_img, kernel, iterations=1)
     #gradient_img = cv2.morphologyEx(canny_img, cv2.MORPH_GRADIENT, kernel)
     #gradient_img = cv2.morphologyEx(canny_img, cv2.MORPH_CLOSE, kernel)
+    #cv2.imshow('mask', img)
     return frame, erode_img
     
 
@@ -236,7 +237,7 @@ if __name__ == "__main__":
     while(True):
         ret, frame = cap.read()
         dir, debug_img = direction_detect(frame)
-        #cv2.imshow("debug", debug_img)
+        cv2.imshow("debug", debug_img)
         #if type(frame) != None:
         #    ss.send_frame(frame)
 

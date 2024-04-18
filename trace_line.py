@@ -169,7 +169,7 @@ def get_trace_value(img : cv2.UMat):
     # Fork Detect
     print('L:', L_min_300 - L_min_240, L_min_240 - L_min_180, L_min_180 - L_min_140) # screen low -> high
     print('R:', R_min_240 - R_min_300, R_min_180 - R_min_240, R_min_140 - R_min_180)
-    if R_min_140 - R_min_180 > 0 and L_min_180 - L_min_140 > 0:
+    if R_min_140 - R_min_180 >= 0 and L_min_180 - L_min_140 >= 0:
         print('[Debug] Fork')
         fork_flag = True
 

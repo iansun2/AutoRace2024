@@ -19,7 +19,7 @@ import copy
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 柵欄,    5: 黑箱
-stage = 4
+stage = 1
 # enable
 disable_trace = False
 disable_lidar_trace = True

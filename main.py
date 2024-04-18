@@ -12,6 +12,7 @@ import lidar as ld
 import threading
 import fence as fc
 import copy
+import socket
 
 #np.seterr(all="ignore")
 

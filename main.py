@@ -12,31 +12,26 @@ import lidar as ld
 import threading
 import fence as fc
 import copy
-import socket
+import stream_server as ss
 
-#np.seterr(all="ignore")
 
 ### Variable ###
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 柵欄,    5: 黑箱
 stage = 1
-# enable
-disable_trace = False
-disable_lidar_trace = True
-disable_drive = False
 
-# trace mode
-# -1: left, 0: two line, 1: right
-trace_mode = 0
-# trace speed
-default_trace_speed = 100
-current_trace_speed = default_trace_speed
-# single line start time
-single_line_st = 0
-# trace config [single_line_dist_L, single_line_dist_R, single_line_kp_L, single_line_kp_R, two_line_kp]
-default_trace_config = [200, 190, 4, 2.7, 1.5]
-current_trace_config = default_trace_config.copy()
+
+
+def stream_send():
+    while True:
+        ret, frame = cap.read()
+        frame = cv2.resize(frame, (640, 480))
+        data = cv2.imencode('.jpg', frame)[1].tobytes()
+        try:
+            connection.write(data)
+        except:
+            break
 
 
 # 相機設定

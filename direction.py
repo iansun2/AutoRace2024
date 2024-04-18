@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import time
+import stream_server as ss
 
 
 low_mask = np.array([90, 40, 110])
@@ -231,12 +232,17 @@ if __name__ == "__main__":
         cap = cv2.VideoCapture(2+cv2.CAP_DSHOW)
 
 
-
+    start_time = time.time()
 
     while(True):
         ret, frame = cap.read()
         dir, debug_img = direction_detect(frame)
-        cv2.imshow("debug", debug_img)
+        #cv2.imshow("debug", debug_img)
+        #if type(frame) != None:
+        #    ss.send_frame(frame)
+        if frame is not None:
+            ss.setFrame(frame)
+
         filted_dir = dir_filt(dir)
         if filted_dir != 0:
             print("Filted: ", filted_dir)

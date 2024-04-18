@@ -19,7 +19,7 @@ import copy
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 柵欄,    5: 黑箱
-stage = 4
+stage = 1
 # enable
 disable_trace = False
 disable_lidar_trace = True
@@ -36,33 +36,6 @@ single_line_st = 0
 # trace config [single_line_dist_L, single_line_dist_R, single_line_kp_L, single_line_kp_R, two_line_kp]
 default_trace_config = [200, 190, 4, 2.7, 1.5]
 current_trace_config = default_trace_config.copy()
-# global timer
-timer_timeout_flag = False
-timer_start_time = 0
-timer_start = False
-timer_timeout = 1
-# common counter
-common_counter = 0
-
-def timer_handle():
-    global timer_timeout_flag, timer_start, timer_start_time, timer_timeout
-    #print('timer handle', time.time() - timer_start_time)
-    if timer_start and time.time() - timer_start_time > timer_timeout:
-        print('end timer')
-        timer_timeout_flag = True
-        timer_start = False
-
-
-
-def start_timer(t):
-    global timer_timeout_flag, timer_start_time, timer_start, timer_timeout
-    print('start timer: ', t)
-    timer_timeout_flag = False
-    timer_start = True
-    timer_start_time = time.time()
-    timer_timeout = t
-
-
 
 
 # 相機設定
@@ -70,17 +43,16 @@ cap = cv2.VideoCapture("/dev/video0")
 if not cap.isOpened():
 	print("camera err")
 	exit()
-cap.set(3,1000)
-cap.set(4,1000)
-cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
-
-
-
+cap.set(3,640)
+cap.set(4,480)
+#cap.set(cv2.CAP_PROP_BRIGHTNESS,-3)
+#cap.set(cv2.CAP_PROP_AUTO_EXPOSURE,-3)
 
 
 # init motor
 motor = mctrl.init_motor()
 # init lidar
+lidar = ld.Lidar()
 
 
 
@@ -103,7 +75,7 @@ frame_cnt = 0
 frame_cnt_start = time.time()
 
 def camera_handler():
-    global ret, img, frame_cnt
+    global ret, img, frame_cnt, frame_cnt_start
     _ret, _img = cap.read()
     mutex_camera.acquire()
     frame_cnt += 1
@@ -111,9 +83,11 @@ def camera_handler():
     img = _img
     if time.time() - frame_cnt_start > 1:
         print('camera fps: ', frame_cnt)
+        frame_cnt = 0
         frame_cnt_start = time.time()
     mutex_camera.release()
 camera_thread = threading.Thread(target=camera_handler)
+camera_thread.start()
 
 
 def get_camera():
@@ -127,6 +101,7 @@ def get_camera():
 def wait_camera():
     global camera_thread
     camera_thread.join()
+    camera_thread = threading.Thread(target=camera_handler)
     camera_thread.start()
 
 
@@ -191,25 +166,28 @@ last_print = 0
 def get_trace(trace_mode, sl_dist, sl_kp, tl_kp) -> int:
     global last_print
     trace_config = [sl_dist[0], sl_dist[1], sl_kp[0], sl_kp[1], tl_kp]
-    tl_frame = img.copy()
+    #ret, tl_frame = get_camera()
+    ret, tl_frame = cap.read()
     L_min, R_min, tl_debug_img, mask_L, mask_R = tl.get_trace_value(tl_frame)
     trace = tl.trace_by_mode(trace_mode, L_min, R_min, trace_config)
-    if time.time() - last_print > 0.2:
-        cv2.imshow('TraceLine', tl_debug_img)
-        last_print = time.time()
-        key = cv2.waitKey(2) & 0xFF
+    # if time.time() - last_print > 1:
+    #     cv2.line(tl_debug_img, (320, 360), (320 - trace, 280), color=(255, 100, 200), thickness=3)
+    #     cv2.imshow('TraceLine', tl_debug_img)
+    #     last_print = time.time()
+    #     key = cv2.waitKey(2) & 0xFF
     return trace
 
 
 def set_motor(trace, lidar, speed):
     global motor
     target = (trace + lidar) * 0.5
-    #print("trace / lidar /target: ", trace, ' / ', lidar, ' / ', target)
+    print("trace / lidar /target: ", trace, ' / ', lidar, ' / ', target)
     try:
-        #print("motor: ", current_trace_speed - target, " / ", current_trace_speed + target)
+        print("motor: ", speed - target, " / ", speed + target)
         motor.setSpeed(speed - target, speed + target)
         pass
     except:
+        print('[error]motor')
         motor = mctrl.init_motor()
         pass
 
@@ -226,10 +204,20 @@ def set_motor(trace, lidar, speed):
 
 
 
+
+
 ########[主程式]########
 
 while ret is None or img is None:
+    wait_camera()
     pass
+
+# test test
+# while 1:
+#     trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.5) # two line 2
+#     wait_camera()
+
+
 time.sleep(3)
 run_start_time = time.time()
 print('run start')
@@ -241,12 +229,14 @@ if stage == 0:
     print('[Stage] start stage 0: ', time.time() - run_start_time)
     while True:
         look_green = HoughCircles()
-        time.sleep(0.2)
+        #time.sleep(0.2)
         if look_green == 1:
             print('pass')
             #time.sleep(7)
-            break
+            #break
             pass
+        wait_camera()
+    motor.setSpeed(100, 100)
     print('[Stage] end stage 0: ', time.time() - run_start_time)
     stage = 1
 
@@ -256,10 +246,24 @@ if stage == 0:
 if stage == 1:
     print('[Stage] start stage 1: ', time.time() - run_start_time)
     # go to fork
+    start_time = time.time()
     while(not tl.fork_flag):
-        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=2) # two line
-        set_motor(trace=trace, lidar=0, speed=250)
-        wait_camera()
+        #wait_camera()
+        if time.time() - start_time > 2:
+            print(time.time())
+            trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1) # two line 2
+            set_motor(trace=trace, lidar=0, speed=0)
+            if trace < 10 and trace > -10:
+                motor.setSpeed(0, 0)
+                print('lock')
+                for i in range(5):
+                    trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1) # two line 2
+                    print(trace)
+                while 1:
+                    pass
+        #time.sleep(0.3)
+        
+        #time.sleep(0.3)
 
     print('[Info] stage 1 <fork>: ', time.time() - run_start_time)
     # wait camera stable
@@ -420,7 +424,7 @@ if stage == 4:
     # go to fence 
     print('[Info] stage 4 <fence>: ', time.time() - run_start_time)
     while 1:
-        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=2) # two line
+        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.8) # two line
         set_motor(trace=trace, lidar=0, speed=250)
         closest = lidar.get_closest_filt(265, 360, False)
         if closest[0] < 450:

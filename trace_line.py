@@ -7,11 +7,11 @@ fork_flag = False
 
 
 # 左右線HSV遮色閥值
-L_H_low = 0
+L_H_low = 25
 L_S_low = 0
-L_V_low = 220
-L_H_high = 36
-L_S_high = 80
+L_V_low = 200
+L_H_high = 40
+L_S_high = 130
 L_V_high = 255
 
 R_H_low = 0
@@ -33,10 +33,15 @@ upper_L = np.array([L_H_high,L_S_high,L_V_high])
 
 
 # 採樣間距
-W_sampling_1 = 325
-W_sampling_2 = 290
-W_sampling_3 = 255
-W_sampling_4 = 220
+W_sampling_1 = 325 #325
+W_sampling_2 = 280 #290
+W_sampling_3 = 225 #255
+W_sampling_4 = 150 #220
+
+# W_sampling_1 = 325 #325
+# W_sampling_2 = 290 #290
+# W_sampling_3 = 255 #255
+# W_sampling_4 = 220 #220
 
 
 
@@ -54,7 +59,8 @@ def get_trace_value(img : cv2.UMat):
     L_min_140 = 0
 
     # 重設大小、轉HSV
-    img = cv2.resize(img,(640,360))
+    #img = cv2.resize(img,(640,360))
+    img = img[120:480, :]
     hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
     # 右線遮罩

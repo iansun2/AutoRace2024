@@ -179,5 +179,13 @@ if __name__ == '__main__':
     #motor.goDist(-50, 50)
     #motor.goRotate(90, 50)
     #motor.goRotate(-90, 50)
+    # while 1:
+    #     print('go')
+    motor.setSpeed(200, 200)
+    time.sleep(1)
+    print('stop')
+    motor.setSpeed(0, 0)
+    time.sleep(1)
+
 
 

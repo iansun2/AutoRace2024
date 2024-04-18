@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import time
-import stream_server as ss
 
 
 low_mask = np.array([90, 40, 110])
@@ -225,8 +224,8 @@ if __name__ == "__main__":
         if not cap.isOpened():
             print("camera err")
             exit()
-        cap.set(3,5000)
-        cap.set(4,5000)
+        cap.set(3,1000)
+        cap.set(4,1000)
         cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
     else:
         cap = cv2.VideoCapture(2+cv2.CAP_DSHOW)
@@ -240,8 +239,6 @@ if __name__ == "__main__":
         #cv2.imshow("debug", debug_img)
         #if type(frame) != None:
         #    ss.send_frame(frame)
-        if frame is not None:
-            ss.setFrame(frame)
 
         filted_dir = dir_filt(dir)
         if filted_dir != 0:

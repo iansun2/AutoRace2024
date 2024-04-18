@@ -164,7 +164,7 @@ def init_motor() -> MOTOR_2_WHEEL_MODE:
 
 if __name__ == '__main__':
     motor = MOTOR_2_WHEEL_MODE()
-    motor.usb_initialization(usb='/dev/serial/by-id/usb-ROBOTIS_OpenCR_Virtual_ComPort_in_FS_Mode_FFFFFFFEFFFF-if00', baudrate=1000000, protocol_version=2.0)
+    motor.usb_initialization(usb='/dev/ttyACM0', baudrate=1000000, protocol_version=2.0)
     motor.motor_initialization(m1_id=1, m2_id=2)
     motor.setupWheel(65, 158.5, 4.5)
     motor.ping()
@@ -181,11 +181,11 @@ if __name__ == '__main__':
     #motor.goRotate(-90, 50)
     # while 1:
     #     print('go')
-    motor.setSpeed(200, 200)
-    time.sleep(1)
-    print('stop')
-    motor.setSpeed(0, 0)
-    time.sleep(1)
+    # motor.setSpeed(200, 200)
+    # time.sleep(1)
+    # print('stop')
+    # motor.setSpeed(0, 0)
+    # time.sleep(1)
 
 
 

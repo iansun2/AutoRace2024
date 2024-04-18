@@ -7,18 +7,18 @@ fork_flag = False
 
 
 # 左右線HSV遮色閥值
-L_H_low = 25
-L_S_low = 0
-L_V_low = 200
+L_H_low = 8
+L_S_low = 8
+L_V_low = 240
 L_H_high = 40
 L_S_high = 130
 L_V_high = 255
 
 R_H_low = 0
 R_S_low = 0
-R_V_low = 235
-R_H_high = 180
-R_S_high = 20
+R_V_low = 240
+R_H_high = 0
+R_S_high = 0
 R_V_high = 255
 
 # 右線遮罩
@@ -33,15 +33,15 @@ upper_L = np.array([L_H_high,L_S_high,L_V_high])
 
 
 # 採樣間距
-W_sampling_1 = 325 #325
-W_sampling_2 = 280 #290
-W_sampling_3 = 225 #255
-W_sampling_4 = 150 #220
-
 # W_sampling_1 = 325 #325
-# W_sampling_2 = 290 #290
-# W_sampling_3 = 255 #255
-# W_sampling_4 = 220 #220
+# W_sampling_2 = 280 #290
+# W_sampling_3 = 225 #255
+# W_sampling_4 = 150 #220
+
+W_sampling_1 = 325 #325
+W_sampling_2 = 290 #290
+W_sampling_3 = 255 #255
+W_sampling_4 = 220 #220
 
 
 
@@ -59,8 +59,8 @@ def get_trace_value(img : cv2.UMat):
     L_min_140 = 0
 
     # 重設大小、轉HSV
-    #img = cv2.resize(img,(640,360))
-    img = img[120:480, :]
+    img = cv2.resize(img,(640,360))
+    #img = img[120:480, :]
     hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
     # 右線遮罩
@@ -167,12 +167,11 @@ def get_trace_value(img : cv2.UMat):
         cv2.circle(img, tuple(point[0]), 3, color=(255, 0, 200), thickness=3)
 
     # Fork Detect
-    #print('L:', L_min_300 - L_min_240, L_min_240 - L_min_180, L_min_180 - L_min_140) # screen low -> high
-    #print('R:', R_min_240 - R_min_300, R_min_180 - R_min_240, R_min_140 - R_min_180)
+    print('L:', L_min_300 - L_min_240, L_min_240 - L_min_180, L_min_180 - L_min_140) # screen low -> high
+    print('R:', R_min_240 - R_min_300, R_min_180 - R_min_240, R_min_140 - R_min_180)
     if R_min_140 - R_min_180 > 0 and L_min_180 - L_min_140 > 0:
-        if R_min_240 - R_min_300 >= 0:
-            print('[Debug] Fork')
-            fork_flag = True
+        print('[Debug] Fork')
+        fork_flag = True
 
 
     L_min = 320-((L_min_300+L_min_240+L_min_180+L_min_140)/4)
@@ -185,8 +184,10 @@ def get_trace_value(img : cv2.UMat):
 
 # dist between screen center and line
 # config : [single_line_dist_L, single_line_dist_R, single_line_kp_L, single_line_kp_R, two_line_kp]
-
+last_error = 0
+kd = 0
 def trace_by_mode(trace_mode : int, L_min : int, R_min : int, config : list):
+    global last_error
     # trace mode
     # left line
     if trace_mode == -1:
@@ -197,5 +198,9 @@ def trace_by_mode(trace_mode : int, L_min : int, R_min : int, config : list):
     # two lines
     else:
         trace = (L_min-R_min) * config[4]
+        d = (trace - last_error) * kd
+        trace += d
+        last_error = trace
+        
 
     return int(trace)

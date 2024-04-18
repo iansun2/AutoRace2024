@@ -18,8 +18,7 @@ import copy
 ### Variable ###
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
-# 3: 停車,   4: 停車離場, 5: 看柵欄
-# 6: 等柵欄, 
+# 3: 停車,   4: 柵欄,    5: 黑箱
 stage = 4
 # enable
 disable_trace = False
@@ -99,18 +98,16 @@ last_print = 0
 mutex_camera = threading.Lock()
 ret = None
 img = None
-new_img_flag = False
+
 def camera_handler():
-    global ret, img, new_img_flag
-    while(1):
-        _ret, _img = cap.read()
-        mutex_camera.acquire()
-        ret = _ret
-        img = _img
-        new_img_flag = True
-        mutex_camera.release()
+    global ret, img
+    _ret, _img = cap.read()
+    mutex_camera.acquire()
+    ret = _ret
+    img = _img
+    mutex_camera.release()
 camera_thread = threading.Thread(target=camera_handler)
-camera_thread.start()
+
 
 def get_camera():
     mutex_camera.acquire()
@@ -119,13 +116,11 @@ def get_camera():
     mutex_camera.release()
     return _ret, _img
 
-def is_new_img():
-    global new_img_flag
-    mutex_camera.acquire()
-    value = new_img_flag
-    new_img_flag = False
-    mutex_camera.release()
-    return value
+
+def wait_camera():
+    global camera_thread
+    camera_thread.join()
+    camera_thread.start()
 
 
 
@@ -254,9 +249,10 @@ if stage == 1:
     print('[Stage] start stage 1: ', time.time() - run_start_time)
     # go to fork
     while(not tl.fork_flag):
-        if is_new_img():
-            trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=2) # two line
-            set_motor(trace=trace, lidar=0, speed=250)
+        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=2) # two line
+        set_motor(trace=trace, lidar=0, speed=250)
+        wait_camera()
+
     print('[Info] stage 1 <fork>: ', time.time() - run_start_time)
     # wait camera stable
     set_motor(trace=0, lidar=0, speed=0) # stop motor
@@ -265,13 +261,13 @@ if stage == 1:
     img_cnt = 0
     dir_samples = [0, 0, 0] # left none right
     while img_cnt < 10: # 10 samples
-        if is_new_img():
-            img_cnt += 1
-            dd_frame = img.copy()
-            dir, dd_debug_img = dd.direction_detect(dd_frame)
-            cv2.imshow('Direction', dd_debug_img)
-            key = cv2.waitKey(20) & 0xFF
-            dir_samples[dir+1] += 1
+        img_cnt += 1
+        ret, dd_frame = get_camera()
+        dir, dd_debug_img = dd.direction_detect(dd_frame)
+        cv2.imshow('Direction', dd_debug_img)
+        key = cv2.waitKey(20) & 0xFF
+        dir_samples[dir+1] += 1
+        wait_camera()
     # get most dir
     max_cnt = 0
     max_cnt_idx = 0
@@ -291,30 +287,30 @@ if stage == 1:
         motor.goRotate(-30, 100)
         motor.setSpeed(100, 100)
         go_dir_time = time.time()
-        while time.time() - go_dir_time < 12: # trace left 10 sec
-            if is_new_img():
-                trace = get_trace(trace_mode=-1, sl_dist=(200, 0), sl_kp=(3, 0), tl_kp=0) # left line
-                set_motor(trace=trace, lidar=0, speed=200)
+        while time.time() - go_dir_time < 12: # trace left 12 sec
+            trace = get_trace(trace_mode=-1, sl_dist=(200, 0), sl_kp=(3, 0), tl_kp=0) # left line
+            set_motor(trace=trace, lidar=0, speed=200)
+            wait_camera()
     # most right:
     elif max_cnt_idx == 2:
         print('[Info] stage 1 dir Right')
         motor.goRotate(30, 100)
         motor.setSpeed(100, 100)
         go_dir_time = time.time()
-        while time.time() - go_dir_time < 12: # trace right 10 sec
-            if is_new_img():
-                trace = get_trace(trace_mode=1, sl_dist=(0, 200), sl_kp=(0, 3), tl_kp=0) # right line
-                set_motor(trace=trace, lidar=0, speed=200)
+        while time.time() - go_dir_time < 12: # trace right 12 sec
+            trace = get_trace(trace_mode=1, sl_dist=(0, 200), sl_kp=(0, 3), tl_kp=0) # right line
+            set_motor(trace=trace, lidar=0, speed=200)
+            wait_camera()
     # two line trace to stage 2
     print('[Info] stage 1 <two line>: ', time.time() - run_start_time)
     while 1:
-        if is_new_img():
-            trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.5) # two line
-            set_motor(trace=trace, lidar=0, speed=250)
+        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.5) # two line
+        set_motor(trace=trace, lidar=0, speed=250)
         closest = lidar.get_closest_filt(270, 360, False)
         if closest[0] < 300:
             #set_motor(trace=0, lidar=0, speed=0) # stop motor
             break
+        wait_camera()
     print('[Stage] end stage 1: ', time.time() - run_start_time)
     stage = 2
 
@@ -324,21 +320,20 @@ if stage == 1:
 if stage == 2:
     print('[Stage] start stage 2: ', time.time() - run_start_time)
     # avoidance
-    trace = 0
     exit_cnt = 0
     avoidance_start = time.time()
     while 1:
-        if is_new_img():
-            trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=2) # two line
-            exit_lidar_val = lidar.get_closest_filt(90, 360, False)
-            #print(exit_lidar_val)
-            if exit_lidar_val[0] > 350 and time.time() - avoidance_start > 10: # init lock 10 sec
-                print('exit cnt++: ', exit_cnt)
-                exit_cnt += 1
+        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=2) # two line
         lidar_val = lidar.get_avoidance(fov=180, filt_dist=500, kp=5e-4)
         set_motor(trace=trace, lidar=lidar_val, speed=250)
+        exit_lidar_val = lidar.get_closest_filt(90, 360, False)
+        #print(exit_lidar_val)
+        if exit_lidar_val[0] > 350 and time.time() - avoidance_start > 10: # init lock 10 sec
+            print('exit cnt++: ', exit_cnt)
+            exit_cnt += 1
         if exit_cnt > 5: # exit need 5 count
             break
+        wait_camera()
     print('[Stage] end stage 2: ', time.time() - run_start_time)
     stage = 3
 
@@ -351,14 +346,14 @@ if stage == 3:
     print('[Info] stage 3 <get close>: ', time.time() - run_start_time)
     left_trace_start = time.time()
     while 1:
-        if is_new_img():
-            trace = get_trace(trace_mode=-1, sl_dist=(200, 0), sl_kp=(2.5, 0), tl_kp=0) # left line
-            set_motor(trace=trace, lidar=0, speed=200)
+        trace = get_trace(trace_mode=-1, sl_dist=(200, 0), sl_kp=(2.5, 0), tl_kp=0) # left line
+        set_motor(trace=trace, lidar=0, speed=200)
         closest = lidar.get_closest_filt(45, 315, True)
         print(closest)
         if closest[0] < 450 and time.time() - left_trace_start > 3: # min exit > 3 sec
             #set_motor(trace=0, lidar=0, speed=0) # stop
             break
+        wait_camera()
 
     # go forward until wall at left or right
     print('[Info] stage 3 <final close>: ', time.time() - run_start_time)
@@ -401,11 +396,11 @@ if stage == 3:
     # left trace to stage 4
     left_trace_start = time.time()
     while 1:
-        if is_new_img():
-            trace = get_trace(trace_mode=-1, sl_dist=(200, 0), sl_kp=(2, 0), tl_kp=0) # left line
-            set_motor(trace=trace, lidar=0, speed=150)
+        trace = get_trace(trace_mode=-1, sl_dist=(200, 0), sl_kp=(2, 0), tl_kp=0) # left line
+        set_motor(trace=trace, lidar=0, speed=150)
         if time.time() - left_trace_start > 10: # trace 5 sec
             break
+        wait_camera()
     print('[Stage] end stage 3: ', time.time() - run_start_time)
     stage = 4
 
@@ -417,52 +412,56 @@ if stage == 4:
     # go to fence 
     print('[Info] stage 4 <fence>: ', time.time() - run_start_time)
     while 1:
-        if is_new_img():
-            trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=2) # two line
-            set_motor(trace=trace, lidar=0, speed=250)
+        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=2) # two line
+        set_motor(trace=trace, lidar=0, speed=250)
         closest = lidar.get_closest_filt(265, 360, False)
         if closest[0] < 450:
             break
+        wait_camera()
     # fence down detect
     print('[Info] stage 4 <fence down>: ', time.time() - run_start_time)
     while 1:
-        if is_new_img():
-            trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1) # two line
-            set_motor(trace=trace, lidar=0, speed=50)
-            fc_frame = img.copy()
-            fence, fc_debug_img = fc.fence_detect(fc_frame)
-            filted_fc = fc.fence_filt(fence)
-            cv2.imshow('Fence', fc_debug_img)
-            key = cv2.waitKey(2) & 0xFF
-            if filted_fc == -1:
-                motor.setSpeed(10, 10)
-                break
+        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1) # two line
+        set_motor(trace=trace, lidar=0, speed=50)
+        fc_frame = img.copy()
+        fence, fc_debug_img = fc.fence_detect(fc_frame)
+        filted_fc = fc.fence_filt(fence)
+        cv2.imshow('Fence', fc_debug_img)
+        key = cv2.waitKey(2) & 0xFF
+        if filted_fc == -1:
+            motor.setSpeed(10, 10)
+            break
+        wait_camera()
     # fence up detect
     print('[Info] stage 4 <fence up>: ', time.time() - run_start_time)
     while 1:
-        if is_new_img():
-            trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=0.5) # two line
-            set_motor(trace=trace, lidar=0, speed=10)
-            fc_frame = img.copy()
-            fence, fc_debug_img = fc.fence_detect(fc_frame)
-            filted_fc = fc.fence_filt(fence)
-            cv2.imshow('Fence', fc_debug_img)
-            key = cv2.waitKey(2) & 0xFF
-            if filted_fc == 1:
-                break
+        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=0.5) # two line
+        set_motor(trace=trace, lidar=0, speed=10)
+        fc_frame = img.copy()
+        fence, fc_debug_img = fc.fence_detect(fc_frame)
+        filted_fc = fc.fence_filt(fence)
+        cv2.imshow('Fence', fc_debug_img)
+        key = cv2.waitKey(2) & 0xFF
+        if filted_fc == 1:
+            break
+        wait_camera()
     # final trace:
     print('[Info] stage 4 <final>: ', time.time() - run_start_time)
     while 1:
-        if is_new_img():
-            trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.5) # two line
-            set_motor(trace=trace, lidar=0, speed=200)
+        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.5) # two line
+        set_motor(trace=trace, lidar=0, speed=200)
         closest = lidar.get_closest_filt(30, 90, False)
         if closest[0] < 250:
             break
+        wait_camera()
 
 
     print('[Stage] end stage 4: ', time.time() - run_start_time)
     stage = 5
+
+
+
+########[黑箱]########
 
 
 
@@ -478,257 +477,6 @@ while 1:
 
 
 
-
-
-
-
-print_img_time = time.time() 
-# 正式開始
-while True:
-    timer_handle()
-    t = time.time()
-
-    # 讀取圖片並轉HSV
-    ret, img = get_camera()
-
-    # direction process
-    dd_frame = img.copy()
-    dir, dd_debug_img = dd.direction_detect(dd_frame)
-    filted_dir = dd.dir_filt(dir)
-    #print(filted_dir)
-    # debug
-    # dir = 0
-
-    # trace line process
-    tl_frame = img.copy()
-    L_min, R_min, tl_debug_img, mask_L, mask_R = tl.get_trace_value(tl_frame)
-    # debug
-    # L_min = 0
-    # R_min = 0
-    # tl_debug_img = img.copy()
-
-    # fence process
-    fc_frame = img.copy()
-    fence, fc_debug_img = fc.fence_detect(fc_frame)
-    filted_fc = fc.fence_filt(fence)
-
-
-    # 左右岔路
-    if stage == 1:
-        if not timer_timeout_flag and not timer_start and filted_dir != 0:
-            print('stop an wait')
-            motor.setSpeed(0, 0)
-            motor.goDist(-50, 100)
-            disable_drive = True
-            start_timer(2)
-        
-        if timer_timeout_flag:
-            print('static dir mode')
-            #filted_dir = -1 # for 0413 race, -------[NEED REMOVE]--------
-            # direction to trace mode
-            # left
-            if filted_dir == -1 and trace_mode == 0:
-                motor.goRotate(-30, 100)
-                disable_drive = False
-                single_line_st = time.time()
-                trace_mode = -1
-                print("stage 1 to left")
-            # right
-            elif filted_dir == 1 and trace_mode == 0:
-                motor.goRotate(30, 100)
-                disable_drive = False
-                single_line_st = time.time()
-                trace_mode = 1
-                print("stage 1 to right")
-            # release
-            elif (time.time() - single_line_st) > 15 and single_line_st:
-                #print("release")
-                # to stage 2
-                print("go to stage 2")
-                stage = 2
-                trace_mode = 0
-                disable_lidar_trace = False
-                disable_trace = False
-                current_trace_speed = 100
-                current_trace_config = [170, 200, 3.5, 4.5, 1.2]
-                common_counter = 0
-                start_timer(30) # 進入避障
-        #print('stage1: ', trace_mode, filted_dir)
-
-    # 避障
-    elif stage == 2:
-        # 看到標誌指向任何一邊
-        print('stage 2:', timer_timeout_flag, lidar.get_closest_filt(225, 260)[0], common_counter)
-        if common_counter < 3 and timer_timeout_flag and lidar.get_closest_filt(225, 260)[0] > 350:
-            common_counter += 1
-        if common_counter >= 3 and timer_timeout_flag:
-            # to stage 3
-            stage = 3
-            common_counter = 0
-            timer_timeout_flag = False
-            disable_lidar_trace = True
-            disable_trace = False
-            trace_mode = -1
-            current_trace_config = [190, 170, 2, 3, 1.5]
-            motor.setSpeed(0, 0)
-            #time.sleep(1)
-            print("go to stage 3")
-            start_timer(10) # 遠離避障
-
-    
-    # 停車
-    elif stage == 3:
-        #print(lidar.get_closest()[0], timer_timeout_flag)
-        if timer_timeout_flag and lidar.get_closest()[0] < 450:
-            timer_timeout_flag = False
-            print("enter parking mode: ", lidar.get_closest())
-            motor.setSpeed(30, 30)
-
-            closest = lidar.get_closest()
-            while closest[1] > 280 or closest[1] < 80 or (closest[1] > 100 and closest[1] < 260):
-                #print(ld.get_lidar_closest())
-                closest = lidar.get_closest()
-                pass
-            print("stop 1")
-            motor.goDist(100, 50)
-            motor.setSpeed(0, 0)
-            
-            # right full
-            if closest[1] < 180:
-                park_dist = 250
-                park_speed = 50
-                print("right full")
-                time.sleep(1)
-                motor.goRotate(90, 30)
-                motor.goDist(-park_dist, park_speed)
-                time.sleep(1)
-                print("leave slot")
-                motor.goDist(park_dist, park_speed)
-                motor.goRotate(90, 30)
-            # left full
-            else:
-                park_dist = 250
-                park_speed = 50
-                print("left full")
-                time.sleep(1)
-                motor.goRotate(-90, 30)
-                motor.goDist(-park_dist, park_speed)
-                time.sleep(1)
-                print("leave slot")
-                motor.goDist(park_dist, park_speed)
-                motor.goRotate(-90, 30)
-            
-            motor.goDist(150, 50)
-            # go to stage 4
-            print("go to stage 4")
-            stage = 4
-            disable_trace = False
-            disable_lidar_trace = True
-            current_trace_config = [200, 200, 2.7, 4.5, 1.2]
-            trace_mode = -1
-            # start timer
-            start_timer(15)
-    
-    # 離開停車
-    elif stage == 4:
-        # timeout flag
-        if timer_timeout_flag:
-            timer_timeout_flag = False
-            # go to stage 5
-            print("go to stage 5")
-            stage = 5
-            disable_trace = False
-            disable_lidar_trace = True
-            current_trace_speed = 150
-            current_trace_config = [170, 200, 2.7, 4.5, 1.5]
-            trace_mode = 0
-    
-    # 看柵欄
-    elif stage == 5:
-        print("stage5 filted_fc: ", filted_fc)
-        # fence down
-        if filted_fc == -1:
-            # go to stage 6
-            print("go to stage 6")
-            stage = 6
-            disable_trace = False
-            disable_lidar_trace = True
-            trace_mode = 0
-            current_trace_speed = 20
-
-    # 等柵欄
-    elif stage == 6:
-        print("stage6 filted_fc: ", filted_fc)
-        # fence up
-        if filted_fc == 1:
-            # go to stage 7
-            print("go to stage 7")
-            stage = 7
-            disable_trace = False
-            disable_lidar_trace = True
-            trace_mode = 0
-            current_trace_speed = default_trace_speed
-
-
-        
-
-    # trace
-    if not disable_trace:
-        # get trace
-        trace = tl.trace_by_mode(trace_mode, L_min, R_min, current_trace_config)
-        # draw trace
-        cv2.line(tl_debug_img, (320, 360), (320 - trace, 280), color=(255, 100, 200), thickness=3)
-    else:
-        trace = 0
-
-    # lidar
-    if not disable_lidar_trace:
-        # get lidar
-        lidar_target = lidar.get_avoidance(config=[180, 500, 15e-4])
-        # draw lidar_target
-        cv2.line(tl_debug_img, (320, 360), (320 - lidar_target, 280), color=(100, 100, 200), thickness=3)
-    else:
-        lidar_target = 0
-
-
-    # drive
-    if not disable_drive:
-        target = trace + lidar_target
-        # draw target
-        cv2.line(tl_debug_img, (320, 360), (320 - target, 280), color=(200, 200, 200), thickness=3)
-
-        #print("trace / lidar /target: ", trace, ' / ', lidar_target, ' / ', target)
-        target *= 0.5
-        #print("motor: ", current_trace_speed - target, " / ", current_trace_speed + target)
-
-        try:
-            if time.time() - start_time > 5:
-                #print("motor: ", current_trace_speed - target, " / ", current_trace_speed + target)
-                motor.setSpeed(current_trace_speed - target, current_trace_speed + target)
-                pass
-        except:
-            motor = mctrl.init_motor()
-            pass
-
-
-    # 輸出原圖&成果
-    if time.time() - print_img_time > 0.2:
-        cv2.imshow("img", tl_debug_img)
-        #cv2.imshow("dd", dd_debug_img)
-
-        #cv2.imshow("mask_R", mask_R)
-        #cv2.imshow("mask_L", mask_L)
-        # cv2.waitKey(0)
-        print_img_time = time.time()
-
-
-    k=cv2.waitKey(1)
-    if k==ord('q'):
-        cv2.destroyAllWindows()
-        motor.setSpeed(0, 0)
-        break
-
-    #print(time.time())
 
 cap.release()
 cv2.destroyAllWindows()

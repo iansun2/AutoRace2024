@@ -81,7 +81,8 @@ cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
 # init motor
 motor = mctrl.init_motor()
 # init lidar
-lidar = ld.Lidar()
+
+
 
 def exit_handler():
     motor.setSpeed(0, 0)
@@ -92,19 +93,25 @@ atexit.register(exit_handler)
 
 
 
-last_print = 0
+
 
 # Camera
 mutex_camera = threading.Lock()
 ret = None
 img = None
+frame_cnt = 0
+frame_cnt_start = time.time()
 
 def camera_handler():
-    global ret, img
+    global ret, img, frame_cnt
     _ret, _img = cap.read()
     mutex_camera.acquire()
+    frame_cnt += 1
     ret = _ret
     img = _img
+    if time.time() - frame_cnt_start > 1:
+        print('camera fps: ', frame_cnt)
+        frame_cnt_start = time.time()
     mutex_camera.release()
 camera_thread = threading.Thread(target=camera_handler)
 
@@ -179,6 +186,7 @@ def HoughCircles():
 
 
 
+last_print = 0
 
 def get_trace(trace_mode, sl_dist, sl_kp, tl_kp) -> int:
     global last_print
@@ -222,7 +230,7 @@ def set_motor(trace, lidar, speed):
 
 while ret is None or img is None:
     pass
-time.sleep(5)
+time.sleep(3)
 run_start_time = time.time()
 print('run start')
 
@@ -462,8 +470,12 @@ if stage == 4:
 
 
 ########[黑箱]########
+if stage == 5:
+    print('[Stage] start stage 5: ', time.time() - run_start_time)
 
 
+    print('[Stage] end stage 5: ', time.time() - run_start_time)
+    stage = 6
 
 
 

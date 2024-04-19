@@ -1,24 +1,25 @@
 import cv2
 import numpy as np
+import camera as cam
 
 # flag
 fork_flag = False
-
+debug = False
 
 
 # 左右線HSV遮色閥值
-L_H_low = 8
-L_S_low = 8
-L_V_low = 240
+L_H_low = 20
 L_H_high = 40
+L_S_low = 50
 L_S_high = 130
+L_V_low = 190
 L_V_high = 255
 
 R_H_low = 0
+R_H_high = 180
 R_S_low = 0
-R_V_low = 240
-R_H_high = 0
-R_S_high = 0
+R_S_high = 30
+R_V_low = 200
 R_V_high = 255
 
 # 右線遮罩
@@ -34,14 +35,14 @@ upper_L = np.array([L_H_high,L_S_high,L_V_high])
 
 # 採樣間距
 # W_sampling_1 = 325 #325
-# W_sampling_2 = 280 #290
-# W_sampling_3 = 225 #255
-# W_sampling_4 = 150 #220
+# W_sampling_2 = 300 #290
+# W_sampling_3 = 250 #255
+# W_sampling_4 = 200 #220
 
-W_sampling_1 = 325 #325
-W_sampling_2 = 290 #290
-W_sampling_3 = 255 #255
-W_sampling_4 = 220 #220
+W_sampling_1 = 305 #325
+W_sampling_2 = 250 #290
+W_sampling_3 = 205 #255
+W_sampling_4 = 150 #220
 
 
 
@@ -59,8 +60,10 @@ def get_trace_value(img : cv2.UMat):
     L_min_140 = 0
 
     # 重設大小、轉HSV
-    img = cv2.resize(img,(640,360))
-    #img = img[120:480, :]
+    #img = cv2.resize(img,(640,360))
+    img = img[120:480, :]
+    if debug:
+        cv2.imshow('input', img)
     hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
     # 右線遮罩
@@ -68,8 +71,9 @@ def get_trace_value(img : cv2.UMat):
     # 左線遮罩
     mask_L = cv2.inRange(hsv,lower_L,upper_L)
 
-    #cv2.imshow('tl L', mask_L)
-    #cv2.imshow('tl R', mask_R)
+    if debug:
+        cv2.imshow('tl L', mask_L)
+        cv2.imshow('tl R', mask_R)
 
     # Right
     # Canny邊緣運算
@@ -85,23 +89,25 @@ def get_trace_value(img : cv2.UMat):
 
     #霍夫變換
     lines = cv2.HoughLinesP(gradient,1,np.pi/180,8,5,2)
+    #lines = cv2.HoughLinesP(gradient,1,np.pi/180,8,5,2)
     
+    right_min_x = 340
     if type(lines) == np.ndarray:
         for line in lines:
             x1,y1,x2,y2 = line[0]
-            if ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_1:
+            if ((x1+x2)/2)>right_min_x and ((y1+y2)/2)>W_sampling_1:
                 # cv2.line(img,(x1,y1),(x2,y2),(255,0,0),1)
                 if ((x1+x2)/2)<R_min_300:
                     R_min_300 = int((x1+x2)/2)
-            elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_2:
+            elif ((x1+x2)/2)>right_min_x and ((y1+y2)/2)>W_sampling_2:
                 # cv2.line(img,(x1,y1),(x2,y2),(0,255,0),1)
                 if ((x1+x2)/2)<R_min_240:
                     R_min_240 = int((x1+x2)/2)
-            elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_3:
+            elif ((x1+x2)/2)>right_min_x and ((y1+y2)/2)>W_sampling_3:
                 # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
                 if ((x1+x2)/2)<R_min_180:
                     R_min_180 = int((x1+x2)/2)
-            elif ((x1+x2)/2)>350 and ((y1+y2)/2)>W_sampling_4:
+            elif ((x1+x2)/2)>right_min_x and ((y1+y2)/2)>W_sampling_4:
                 # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
                 if ((x1+x2)/2)<R_min_140:
                     R_min_140 = int((x1+x2)/2)
@@ -120,26 +126,28 @@ def get_trace_value(img : cv2.UMat):
     # 閉運算(解緩Canny斷線問題)
     kernel = np.ones((5,5),np.uint8)
     gradient = cv2.morphologyEx(canny_img, cv2.MORPH_GRADIENT, kernel)
+    cv2.imshow('grad', gradient)
 
     #霍夫變換
     lines = cv2.HoughLinesP(gradient,1,np.pi/180,8,5,2)
-
+    
+    left_max_x = 300
     if type(lines) == np.ndarray:
         for line in lines:
             x1,y1,x2,y2 = line[0]
-            if ((x1+x2)/2)<250 and ((y1+y2)/2)>W_sampling_1:
+            if ((x1+x2)/2)<left_max_x and ((y1+y2)/2)>W_sampling_1:
                 # cv2.line(img,(x1,y1),(x2,y2),(255,0,0),1)
                 if ((x1+x2)/2)>L_min_300:
                     L_min_300 = int((x1+x2)/2)
-            elif ((x1+x2)/2)<250 and ((y1+y2)/2)>W_sampling_2:
+            elif ((x1+x2)/2)<left_max_x and ((y1+y2)/2)>W_sampling_2:
                 # cv2.line(img,(x1,y1),(x2,y2),(0,255,0),1)
                 if ((x1+x2)/2)>L_min_240:
                     L_min_240 = int((x1+x2)/2)
-            elif ((x1+x2)/2)<250 and ((y1+y2)/2)>W_sampling_3:
+            elif ((x1+x2)/2)<left_max_x and ((y1+y2)/2)>W_sampling_3:
                 # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
                 if ((x1+x2)/2)>L_min_180:
                     L_min_180 = int((x1+x2)/2)
-            elif ((x1+x2)/2)<250 and ((y1+y2)/2)>W_sampling_4:
+            elif ((x1+x2)/2)<left_max_x and ((y1+y2)/2)>W_sampling_4:
                 # cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
                 if ((x1+x2)/2)>L_min_140:
                     L_min_140 = int((x1+x2)/2)    
@@ -152,7 +160,7 @@ def get_trace_value(img : cv2.UMat):
     # cv2.rectangle(img, (L_min_180, W_sampling_3), (R_min_180, W_sampling_2), (0,0,255), 0) 
     # cv2.rectangle(img, (L_min_140, W_sampling_4), (R_min_140, W_sampling_3), (0,255,255), 0) 
 
-    # Left
+    # Left Sum
     pts = np.array([[L_min_300,(360+W_sampling_1)/2], [L_min_240,(W_sampling_1+W_sampling_2)/2], [L_min_180,(W_sampling_2+W_sampling_3)/2],[L_min_140,(W_sampling_3+W_sampling_4)/2]], np.int32)
     pts = pts.reshape((-1, 1, 2))
     img = cv2.polylines(img, [pts], False,(255,200,0),3)
@@ -160,7 +168,7 @@ def get_trace_value(img : cv2.UMat):
         #print("point: ", point)
         cv2.circle(img, tuple(point[0]), 3, color=(255, 0, 200), thickness=3)
 
-    # Right
+    # Right Sum
     pts = np.array([[R_min_300,(360+W_sampling_1)/2], [R_min_240,(W_sampling_1+W_sampling_2)/2], [R_min_180,(W_sampling_2+W_sampling_3)/2],[R_min_140,(W_sampling_3+W_sampling_4)/2]], np.int32)
     pts = pts.reshape((-1, 1, 2))
     img = cv2.polylines(img, [pts], False,(255,200,0),3)
@@ -169,9 +177,10 @@ def get_trace_value(img : cv2.UMat):
         cv2.circle(img, tuple(point[0]), 3, color=(255, 0, 200), thickness=3)
 
     # Fork Detect
-    #print('L:', L_min_300 - L_min_240, L_min_240 - L_min_180, L_min_180 - L_min_140) # screen low -> high
-    #print('R:', R_min_240 - R_min_300, R_min_180 - R_min_240, R_min_140 - R_min_180)
-    if R_min_140 - R_min_180 >= 0 and L_min_180 - L_min_140 >= 0:
+    print('L:', L_min_300 - L_min_240, L_min_240 - L_min_180, L_min_180 - L_min_140) # screen low -> high
+    print('R:', R_min_240 - R_min_300, R_min_180 - R_min_240, R_min_140 - R_min_180)
+    if (R_min_140 - R_min_180 > 0 and L_min_180 - L_min_140 > 0) or \
+        (R_min_180 - R_min_240 > 0 and L_min_240 - L_min_180 > 0):
         print('[Debug] Fork')
         fork_flag = True
 
@@ -180,7 +189,7 @@ def get_trace_value(img : cv2.UMat):
     R_min = ((R_min_300+R_min_240+R_min_180+R_min_140)/4)-320
     #print("min L/R: ", L_min, " ", R_min)
 
-    return L_min, R_min, img, mask_L, mask_R
+    return L_min, R_min, img
 
 
 
@@ -206,3 +215,16 @@ def trace_by_mode(trace_mode : int, L_min : int, R_min : int, config : list):
         
 
     return int(trace)
+
+
+
+if __name__ == "__main__":
+    debug = True
+    cam.wait_camera_avail()
+
+    while(True):
+        ret, frame = cam.get_camera()
+        _L, _R, debug_frame = get_trace_value(frame)
+        cv2.imshow('debug', debug_frame)
+        key = cv2.waitKey(2) & 0xFF
+

@@ -173,7 +173,7 @@ if __name__ == '__main__':
     # time.sleep(1)
     # motor.setSpeed(-50, -50)
     # time.sleep(2)
-    #motor.setSpeed(0, 0)
+    #motor.setSpeed(-100, -100)
     #time.sleep(1)
     #motor.goDist(150, 500)
     #motor.goDist(-50, 50)

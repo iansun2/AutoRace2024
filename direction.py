@@ -1,22 +1,18 @@
 import cv2
 import numpy as np
 import time
+import camera as cam
 
+debug = False
 
-low_mask = np.array([90, 80, 150])
-high_mask = np.array([140, 200, 255])
-
-
-mode2 = False
-
+low_mask = np.array([50, 110, 3])
+high_mask = np.array([100, 255, 80])
 
 
 def frame_preprocess(frame: cv2.Mat) -> cv2.Mat:
-    frame = cv2.resize(frame, (1000, 1000), interpolation=cv2.INTER_AREA)
-    if(mode2):
-        frame = frame[0:500, 500:1000]
-    else:
-        frame = frame[0:300, 200:800]
+    #frame = cv2.resize(frame, (1000, 1000), interpolation=cv2.INTER_AREA)
+    frame = frame[0:100, 100:500]
+    frame = cv2.resize(frame, (900, 200), interpolation=cv2.INTER_LINEAR)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     img = cv2.inRange(hsv, low_mask, high_mask)
     kernel_size = 5
@@ -30,7 +26,9 @@ def frame_preprocess(frame: cv2.Mat) -> cv2.Mat:
     erode_img = cv2.erode(dilate_img, kernel, iterations=1)
     #gradient_img = cv2.morphologyEx(canny_img, cv2.MORPH_GRADIENT, kernel)
     #gradient_img = cv2.morphologyEx(canny_img, cv2.MORPH_CLOSE, kernel)
-    #cv2.imshow('mask', img)
+    if debug:
+        cv2.imshow('mask', img)
+        cv2.imshow('raw', frame)
     return frame, erode_img
     
 
@@ -132,9 +130,6 @@ def direction_detect(frame: cv2.UMat):
     valid_obj = filt_by_arc_length(contours)
     #print('arc length valid: ', len(valid_obj))
 
-    if len(valid_obj) >= 2 and mode2:
-        return -1, post_img
-
     valid_obj = filt_by_points(valid_obj, debug_img)
     #print('point count valid: ', len(valid_obj))
 
@@ -217,40 +212,24 @@ def dir_filt(dir):
 
 #### main start ####
 if __name__ == "__main__":
-    car_test = True
-    #set_mode2()
-    
-    if car_test:
-        cap = cv2.VideoCapture("/dev/video0")
-        if not cap.isOpened():
-            print("camera err")
-            exit()
-        cap.set(3,1000)
-        cap.set(4,1000)
-        cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
-    else:
-        cap = cv2.VideoCapture(2+cv2.CAP_DSHOW)
+    debug = True
+    cam.wait_camera_avail()
+    print('init success')
 
 
     start_time = time.time()
 
     while(True):
-        ret, frame = cap.read()
+        ret, frame = cam.get_camera()
         dir, debug_img = direction_detect(frame)
         cv2.imshow("debug", debug_img)
-        #if type(frame) != None:
-        #    ss.send_frame(frame)
+
 
         filted_dir = dir_filt(dir)
         if filted_dir != 0:
             print("Filted: ", filted_dir)
 
-        key = cv2.waitKey(50) & 0xFF
-        if key == ord('q'):
-            break
-        elif key == 32:
-            continue
+        key = cv2.waitKey(2) & 0xFF
 
 
-    cap.release()
     cv2.destroyAllWindows()

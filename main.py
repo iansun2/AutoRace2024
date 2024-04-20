@@ -398,8 +398,10 @@ if stage == 4:
     while 1:
         trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.5) # two line
         set_motor(trace=trace, lidar=0, speed=200)
-        closest = lidar.get_closest_filt(30, 90, False)
-        if time.time() - final_start > 10:
+        if time.time() - final_start > 20:
+            closest = lidar.get_closest_filt(30, 90, False)
+            if closest[0] < 200:
+                motor.goDist(160, 100)
             break
     print('[Stage] end stage 4: ', time.time() - run_start_time)
     stage = 5

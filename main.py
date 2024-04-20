@@ -421,20 +421,30 @@ if stage == 5:
     dist_to_wall = 200
     speed = 100
     kp = 2
+    kd = 0.5
+    last_p = 0
+    # trace lidar wall
     while 1:
         closest = lidar.get_closest_filt(0, 90, False)
-        error = kp * (dist_to_wall - closest[0])
-        if error > 0:
-            error = min(200, error)
+        p = kp * (dist_to_wall - closest[0])
+        d = kd * (p - last_p)
+        if p > 0:
+            p = min(200, p)
         else:
-            error = max(-200, error)
-        #print(error)
-        motor.setSpeed(speed - error, speed + error)
-        closest_front = lidar.get_closest_filt(5, 355, True)
+            p = max(-200, p)
+        last_p = p
+        sum = p + d
+        print('p:', p, ' /d:', d, ' /sum:', sum)
+        motor.setSpeed(speed - sum, speed + sum)
+        closest_front = lidar.get_closest_filt(30, 330, True)
         if closest_front[0] > 2500:
-            motor.setSpeed(100, 100)
+            motor.goDist(100, 100)
             print('strait')
             break
+    # exit
+    while 1:
+        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.5) # two line
+        set_motor(trace=trace, lidar=0, speed=200)
     
 
     # while 1:
@@ -449,7 +459,7 @@ if stage == 5:
 
 
 
-motor.setSpeed(0, 0)
+#motor.setSpeed(0, 0)
 print('[End]: ', time.time() - run_start_time)
 while 1:
     pass

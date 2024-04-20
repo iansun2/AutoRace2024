@@ -5,14 +5,14 @@ import camera as cam
 
 debug = False
 
-low_mask = np.array([80, 150, 15])
-high_mask = np.array([120, 255, 80])
+low_mask = np.array([75, 120, 7])
+high_mask = np.array([125, 255, 100])
 
 
 def frame_preprocess(frame: cv2.Mat) -> cv2.Mat:
     #frame = cv2.resize(frame, (1000, 1000), interpolation=cv2.INTER_AREA)
     frame = frame[0:150, 100:500]
-    frame = cv2.resize(frame, (900, 200), interpolation=cv2.INTER_LINEAR)
+    frame = cv2.resize(frame, (800, 300), interpolation=cv2.INTER_LINEAR)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     img = cv2.inRange(hsv, low_mask, high_mask)
     kernel_size = 5
@@ -161,8 +161,9 @@ def direction_detect(frame: cv2.UMat):
 
     cv2.circle(debug_img, (highest[0], highest[1]), radius=5, color=(0, 0, 0), thickness=3)
     cv2.circle(debug_img, (lowest[0], lowest[1]), radius=5, color=(100, 100, 100), thickness=3)
-
-    if highest[0] < lowest[0]:
+    if abs(highest[1] - lowest[1]) < 60:
+        dir = 0
+    elif highest[0] < lowest[0]:
         #print("left")
         cv2.putText(debug_img, "left", tuple(leftest), cv2.FONT_HERSHEY_SIMPLEX , 1, (255, 0, 255), 2, cv2.LINE_AA)
         dir = -1

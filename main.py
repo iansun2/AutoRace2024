@@ -14,7 +14,7 @@ import camera as cam
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 柵欄,    5: 黑箱
-stage = 0
+stage = 2
 
 
 
@@ -200,6 +200,7 @@ if stage == 1:
         key = cv2.waitKey(20) & 0xFF
         dir_samples[dir+1] += 1
     # get most dir
+    dir_samples[1] = 0
     max_cnt = 0
     max_cnt_idx = 0
     for idx in range(0, 3):
@@ -209,12 +210,9 @@ if stage == 1:
     print('[Info] stage 1 <dir>: ', time.time() - run_start_time)
     #max_cnt_idx = 0 # force #############################################
     # most none:
-    if max_cnt_idx == 1:
-        print('[Error] stage 1 dir None')
-        while 1:
-            pass
+
     # most left:
-    elif max_cnt_idx == 0:
+    if max_cnt_idx == 0:
         print('[Info] stage 1 dir Left')
         motor.goDist(100, 180)
         motor.goRotate(-40, 100)
@@ -225,7 +223,7 @@ if stage == 1:
             set_motor(trace=trace, lidar=0, speed=250)
             
     # most right:
-    elif max_cnt_idx == 2:
+    else:
         print('[Info] stage 1 dir Right')
         motor.goDist(100, 180)
         motor.goRotate(45, 100)
@@ -234,7 +232,7 @@ if stage == 1:
         while time.time() - go_dir_time < 18: # trace right 12 sec
             trace = get_trace(trace_mode=1, sl_dist=(0, 210), sl_kp=(0, 3.2), tl_kp=0) # right line
             set_motor(trace=trace, lidar=0, speed=250)
-            
+
     # two line trace to stage 2
     print('[Info] stage 1 <two line>: ', time.time() - run_start_time)
     while 1:
@@ -398,10 +396,16 @@ if stage == 4:
     while 1:
         trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.5) # two line
         set_motor(trace=trace, lidar=0, speed=200)
-        if time.time() - final_start > 20:
+        if time.time() - final_start > 26:
             closest = lidar.get_closest_filt(30, 90, False)
-            if closest[0] < 200:
-                motor.goDist(160, 100)
+            if closest[0] < 100:
+                motor.goDist(160, 200)
+                closest = lidar.get_closest_filt(80, 100, False)
+                print('cloest0', closest)
+                delta = 90 - closest[1]
+                print('delta0', delta)
+                motor.goRotate(delta, 30)
+
             break
     print('[Stage] end stage 4: ', time.time() - run_start_time)
     stage = 5
@@ -411,6 +415,15 @@ if stage == 4:
 ########[黑箱]########
 if stage == 5:
     print('[Stage] start stage 5: ', time.time() - run_start_time)
+    motor.setSpeed(200,200)
+    while 1:
+        closest = lidar.get_closest_filt(10, 350, True)
+        if closest[0] < 160:
+            motor.goDist(160, 200)
+            break
+    motor.goRotate(-90, 100)
+    motor.goDist(3000, 200)
+
     # while 1:
     #     closest_F = lidar.get_closest_filt(30, 330, True)
     #     closest_R = lidar.get_closest_filt(60, 120, False)

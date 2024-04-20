@@ -14,7 +14,7 @@ import camera as cam
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 柵欄,    5: 黑箱
-stage = 2
+stage = 0
 
 
 
@@ -411,7 +411,12 @@ if stage == 4:
 ########[黑箱]########
 if stage == 5:
     print('[Stage] start stage 5: ', time.time() - run_start_time)
-
+    # while 1:
+    #     closest_F = lidar.get_closest_filt(30, 330, True)
+    #     closest_R = lidar.get_closest_filt(60, 120, False)
+    #     closest_L = lidar.get_closest_filt(240, 300, False)
+    #     if closest_F < 100:
+    #         if closest_R 
 
     print('[Stage] end stage 5: ', time.time() - run_start_time)
     stage = 6

@@ -1,3 +1,4 @@
+from pickletools import float8
 import cv2
 import numpy as np
 import time
@@ -15,17 +16,21 @@ ax = fig.subplots(1,1)
 center = 5000
 half_edge_length = 2000
 area_ref = 4e6
-area_tol = 1e6
+area_tol = 4e6
 
 
-box = [[center, center], [center, center - half_edge_length * 2], [center - half_edge_length * 2, center], [center - half_edge_length * 2, center - half_edge_length * 2]]
+box = np.array([[center, center], \
+    [center, center - half_edge_length * 2], \
+    [center - half_edge_length * 2, center], \
+    [center - half_edge_length * 2, center - half_edge_length * 2]\
+])
 last_box = copy.deepcopy(box)
-enter_point = [center, center]
-exit_point = [center - half_edge_length * 2, center - half_edge_length * 2]
+enter_point = np.array([center, center])
+exit_point = np.array([center - half_edge_length * 2, center - half_edge_length * 2])
 
 
 def get_map(lidar : ld.Lidar):
-    global ax, fig, box, last_box
+    global ax, fig, box, last_box, enter_point, exit_point
 
     data = lidar.get_angle_data() # [deg, dist] * N
     #print(np.array(view))
@@ -44,7 +49,11 @@ def get_map(lidar : ld.Lidar):
     ax.axis([center - half_edge_length, center + half_edge_length, center - half_edge_length, center + half_edge_length])
 
     points = np.array(points)
+    #print(points)
     raw_points = np.transpose(points)
+
+    if points.size == 0:
+        return 0 
 
     points = cv2.approxPolyDP(points, 50, True)
     approx_points = np.transpose(points)
@@ -64,14 +73,18 @@ def get_map(lidar : ld.Lidar):
         exit_point = tracing_point(exit_point)
         pass
 
-    
-    polygon1 = Polygon(box, True)
-    ax.add_patch(polygon1)
+    #print(box)
+    #polygon1 = Polygon(box, True)
+    #ax.add_patch(polygon1)
+    box_tp = np.transpose(box)
+    #ax.scatter(approx_points[0], approx_points[1], color="orange")
+    ax.scatter([box_tp[0]], [box_tp[1]], color="yellow")
+
     ax.scatter([center], [center], color="blue")
     ax.scatter([enter_point[0]], [enter_point[1]], color="green")
     ax.scatter([exit_point[0]], [exit_point[1]], color="red")
 
-    ax.scatter(approx_points[0], approx_points[1], color="orange")
+    
 
     plt.draw()
     plt.pause(1)
@@ -161,6 +174,10 @@ def tracing_point(last_point):
     return real_point
 
 
+def get_exit_point_err(kp: float):
+    return int((exit_point[0] - center) * kp)
+
+
 
 # main
 if __name__ == "__main__":
@@ -173,5 +190,6 @@ if __name__ == "__main__":
     select_enter_exit_point()
     while 1:
         get_map(lidar)
+        print(get_exit_point_err(1e-1))
         
 

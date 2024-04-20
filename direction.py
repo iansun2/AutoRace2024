@@ -6,7 +6,7 @@ import camera as cam
 debug = False
 
 low_mask = np.array([80, 150, 15])
-high_mask = np.array([120, 255, 70])
+high_mask = np.array([120, 255, 80])
 
 
 def frame_preprocess(frame: cv2.Mat) -> cv2.Mat:

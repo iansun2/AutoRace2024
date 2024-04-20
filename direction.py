@@ -5,13 +5,13 @@ import camera as cam
 
 debug = False
 
-low_mask = np.array([50, 110, 3])
-high_mask = np.array([100, 255, 80])
+low_mask = np.array([80, 150, 15])
+high_mask = np.array([120, 255, 70])
 
 
 def frame_preprocess(frame: cv2.Mat) -> cv2.Mat:
     #frame = cv2.resize(frame, (1000, 1000), interpolation=cv2.INTER_AREA)
-    frame = frame[0:100, 100:500]
+    frame = frame[0:150, 100:500]
     frame = cv2.resize(frame, (900, 200), interpolation=cv2.INTER_LINEAR)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     img = cv2.inRange(hsv, low_mask, high_mask)

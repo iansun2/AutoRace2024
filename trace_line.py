@@ -8,18 +8,18 @@ debug = False
 
 
 # 左右線HSV遮色閥值
-L_H_low = 20
-L_H_high = 40
-L_S_low = 50
-L_S_high = 130
-L_V_low = 190
-L_V_high = 255
+L_H_low = 15
+L_H_high = 35
+L_S_low = 80
+L_S_high = 190
+L_V_low = 185
+L_V_high = 230
 
 R_H_low = 0
 R_H_high = 180
 R_S_low = 0
-R_S_high = 30
-R_V_low = 200
+R_S_high =35
+R_V_low = 180
 R_V_high = 255
 
 # 右線遮罩
@@ -177,8 +177,8 @@ def get_trace_value(img : cv2.UMat):
         cv2.circle(img, tuple(point[0]), 3, color=(255, 0, 200), thickness=3)
 
     # Fork Detect
-    print('L:', L_min_300 - L_min_240, L_min_240 - L_min_180, L_min_180 - L_min_140) # screen low -> high
-    print('R:', R_min_240 - R_min_300, R_min_180 - R_min_240, R_min_140 - R_min_180)
+    #print('L:', L_min_300 - L_min_240, L_min_240 - L_min_180, L_min_180 - L_min_140) # screen low -> high
+    #print('R:', R_min_240 - R_min_300, R_min_180 - R_min_240, R_min_140 - R_min_180)
     if (R_min_140 - R_min_180 > 0 and L_min_180 - L_min_140 > 0) or \
         (R_min_180 - R_min_240 > 0 and L_min_240 - L_min_180 > 0):
         print('[Debug] Fork')

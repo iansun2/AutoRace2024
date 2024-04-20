@@ -14,7 +14,7 @@ cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640) # 3
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480) # 4
 cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1) # manual expos
 #cap.set(cv2.CAP_PROP_BRIGHTNESS,-3)
-cap.set(cv2.CAP_PROP_EXPOSURE, 180)
+cap.set(cv2.CAP_PROP_EXPOSURE, 110)
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 

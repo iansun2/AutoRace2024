@@ -2,21 +2,30 @@ import cv2
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+import camera as cam
 
-low_mask = np.array([0, 40, 100])
-high_mask = np.array([1, 255, 255])
+debug = False
 
-low_mask2 = np.array([160, 40, 100])
-high_mask2 = np.array([179, 255, 255])
+
+low_mask = np.array([0, 140, 100])
+high_mask = np.array([15, 255, 255])
+
+low_mask2 = np.array([160, 140, 100])
+high_mask2 = np.array([180, 255, 255])
 
 
 def frame_preprocess(frame: cv2.Mat) -> cv2.Mat:
-    frame = cv2.resize(frame, (500, 500), interpolation=cv2.INTER_AREA)
-    #frame = frame[0:500, 0:500]
+    #frame = cv2.resize(frame, (500, 500), interpolation=cv2.INTER_AREA)
+    frame = frame[0:150, 200:320]
+    frame = cv2.resize(frame, (300, 240), interpolation=cv2.INTER_LINEAR)
+    
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     mask1 = cv2.inRange(hsv, low_mask, high_mask)
     mask2 = cv2.inRange(hsv, low_mask2, high_mask2)
     img = mask1 + mask2
+    if debug:
+        cv2.imshow('raw', frame)
+        cv2.imshow('mask', img)
     kernel_size = 5
     blur_img = cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
     low_threshold = 10
@@ -113,7 +122,7 @@ def fence_detect(frame: cv2.UMat):
 
         linear_model = np.polyfit(data[0], data[1], 1)
         linear_model_fn = np.poly1d(linear_model)
-        print("linear: ", linear_model_fn)
+        #print("linear: ", linear_model_fn)
         # x_s = np.arange(0, 500)
         # y_s = linear_model_fn(x_s)
         # plt.plot(x_s, y_s, color="green")
@@ -167,24 +176,14 @@ def fence_filt(fence):
 
 # main
 if __name__ == "__main__":
-    car_test = True
-
-    if car_test:
-        cap = cv2.VideoCapture("/dev/video0")
-        if not cap.isOpened():
-            print("camera err")
-            exit()
-        cap.set(3,1000)
-        cap.set(4,1000)
-        cap.set(cv2.CAP_PROP_BRIGHTNESS,1)
-    else:
-        cap = cv2.VideoCapture(2+cv2.CAP_DSHOW)
+    debug = True
+    cam.wait_camera_avail()
 
     plt.ion()
     plt.show()
 
     while(True):
-        ret, frame = cap.read()
+        ret, frame = cam.get_camera()
         dir, debug_img = fence_detect(frame)
         cv2.imshow("debug", debug_img)
         
@@ -195,6 +194,5 @@ if __name__ == "__main__":
         elif key == 32:
             continue
 
-    cap.release()
     cv2.destroyAllWindows()
 

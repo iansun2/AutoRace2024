@@ -14,7 +14,7 @@ import camera as cam
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 柵欄,    5: 黑箱
-stage = 1
+stage = 4
 
 
 
@@ -40,15 +40,18 @@ atexit.register(exit_handler)
 # 看紅綠燈
 def HoughCircles():
     #紅綠燈遮罩
-    low_G = np.array([35,30,200])
-    up_G = np.array([60,255,255])
+    low_G = np.array([65,110,110])
+    up_G = np.array([90,255,255])
+
+    # low_G = np.array([160,35,180])
+    # up_G = np.array([180,140,255])
 
     # 回傳值(0=沒看到綠燈,1=有看到綠燈)
     look_green = 0
     # 讀取圖片並轉HSV
-    ret, img = get_camera()
+    ret, img = cam.get_camera()
     #img = cv2.resize(img, (500, 500))
-    img = img[0:500, 500:1000]
+    img = img[0:150, 400:550]
     hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
     # 遮罩
     mask_G = cv2.inRange(hsv,low_G,up_G)
@@ -59,7 +62,7 @@ def HoughCircles():
     kernel = np.ones((2,2),np.uint8)
     gradient = cv2.morphologyEx(canny, cv2.MORPH_GRADIENT, kernel)
     #霍夫變換圓檢測
-    circles= cv2.HoughCircles(gradient,cv2.HOUGH_GRADIENT,1,20,param1=45,param2=20,minRadius=5,maxRadius=80)
+    circles= cv2.HoughCircles(gradient,cv2.HOUGH_GRADIENT,1,20,param1=45,param2=20,minRadius=1,maxRadius=80)
 
     
     final_img = img.copy()
@@ -81,10 +84,13 @@ def HoughCircles():
 
     else:
         print('no look green light')
+        pass
 
         
     #顯示新圖像
-    #cv2.imshow('final', final_img)
+    cv2.imshow('mask', mask_G)
+    cv2.imshow('grad', gradient)
+    cv2.imshow('final', final_img)
     cv2.waitKey(1)
 
     return look_green
@@ -111,9 +117,9 @@ def get_trace(trace_mode, sl_dist, sl_kp, tl_kp) -> int:
 def set_motor(trace, lidar, speed):
     global motor
     target = (trace + lidar) * 0.5
-    print("trace / lidar /target: ", trace, ' / ', lidar, ' / ', target)
+    #print("trace / lidar /target: ", trace, ' / ', lidar, ' / ', target)
     try:
-        print("motor: ", speed - target, " / ", speed + target)
+        #print("motor: ", speed - target, " / ", speed + target)
         motor.setSpeed(speed - target, speed + target)
         pass
     except:
@@ -161,7 +167,7 @@ if stage == 0:
         if look_green == 1:
             print('pass')
             #time.sleep(7)
-            #break
+            break
             pass
     motor.setSpeed(100, 100)
     print('[Stage] end stage 0: ', time.time() - run_start_time)
@@ -201,7 +207,7 @@ if stage == 1:
             max_cnt = dir_samples[idx]
             max_cnt_idx = idx
     print('[Info] stage 1 <dir>: ', time.time() - run_start_time)
-    max_cnt_idx = 2 # force
+    #max_cnt_idx = 0 # force #############################################
     # most none:
     if max_cnt_idx == 1:
         print('[Error] stage 1 dir None')
@@ -210,18 +216,20 @@ if stage == 1:
     # most left:
     elif max_cnt_idx == 0:
         print('[Info] stage 1 dir Left')
-        motor.goDist(100, 200)
-        motor.goRotate(-30, 100)
+        motor.goDist(100, 180)
+        motor.goRotate(-40, 100)
+        motor.setSpeed(200, 200)
         go_dir_time = time.time()
         while time.time() - go_dir_time < 18: # trace left 12 sec
-            trace = get_trace(trace_mode=-1, sl_dist=(200, 0), sl_kp=(3, 0), tl_kp=0) # left line
+            trace = get_trace(trace_mode=-1, sl_dist=(200, 0), sl_kp=(3.2, 0), tl_kp=0) # left line
             set_motor(trace=trace, lidar=0, speed=250)
             
     # most right:
     elif max_cnt_idx == 2:
         print('[Info] stage 1 dir Right')
-        motor.goDist(100, 200)
-        motor.goRotate(40, 100)
+        motor.goDist(100, 180)
+        motor.goRotate(45, 100)
+        motor.setSpeed(200, 200)
         go_dir_time = time.time()
         while time.time() - go_dir_time < 18: # trace right 12 sec
             trace = get_trace(trace_mode=1, sl_dist=(0, 210), sl_kp=(0, 3.2), tl_kp=0) # right line
@@ -343,43 +351,44 @@ if stage == 4:
         set_motor(trace=trace, lidar=0, speed=250)
         #closest = lidar.get_closest_filt(265, 360, False)
         #if closest[0] < 450:
-        if time.time() - go_fence_start > 15:
+        if time.time() - go_fence_start > 12:
             break
         
     # fence down detect
-    print('[Info] stage 4 <fence down>: ', time.time() - run_start_time)
+    print('[Info] stage 4 <fence down detect>: ', time.time() - run_start_time)
     while 1:
         trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1) # two line
         set_motor(trace=trace, lidar=0, speed=50)
         ret, fc_frame = cam.get_camera()
         fence, fc_debug_img = fc.fence_detect(fc_frame)
         filted_fc = fc.fence_filt(fence)
-        #cv2.imshow('Fence', fc_debug_img)
+        cv2.imshow('Fence', fc_debug_img)
         key = cv2.waitKey(2) & 0xFF
         if filted_fc == -1:
             motor.setSpeed(20, 20)
             break
         
     # fence up detect
-    print('[Info] stage 4 <fence up>: ', time.time() - run_start_time)
+    print('[Info] stage 4 <fence up detect>: ', time.time() - run_start_time)
     while 1:
         trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=0.5) # two line
         set_motor(trace=trace, lidar=0, speed=10)
         ret, fc_frame = cam.get_camera()
         fence, fc_debug_img = fc.fence_detect(fc_frame)
         filted_fc = fc.fence_filt(fence)
-        #cv2.imshow('Fence', fc_debug_img)
+        cv2.imshow('Fence', fc_debug_img)
         key = cv2.waitKey(2) & 0xFF
-        if filted_fc == 1:
+        if filted_fc != -1:
             break
         
     # final trace:
     print('[Info] stage 4 <final>: ', time.time() - run_start_time)
+    final_start = time.time()
     while 1:
         trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.5) # two line
         set_motor(trace=trace, lidar=0, speed=200)
         closest = lidar.get_closest_filt(30, 90, False)
-        if closest[0] < 250:
+        if time.time() - final_start > 10:
             break
         
 

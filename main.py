@@ -14,7 +14,7 @@ import camera as cam
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 柵欄,    5: 黑箱
-stage = 4
+stage = 2
 
 
 
@@ -260,7 +260,8 @@ if stage == 2:
         trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=2) # two line
         lidar_val = lidar.get_avoidance(fov=180, filt_dist=500, kp=5e-4)
         set_motor(trace=trace, lidar=lidar_val, speed=250)
-        exit_lidar_val = lidar.get_closest_filt(90, 360, False)
+        #exit_lidar_val = lidar.get_closest_filt(90, 360, False)
+        exit_lidar_val = lidar.get_closest()
         #print(exit_lidar_val)
         if exit_lidar_val[0] > 350 and time.time() - avoidance_start > 10: # init lock 10 sec
             print('exit cnt++: ', exit_cnt)
@@ -370,8 +371,8 @@ if stage == 4:
         if fence_down_cnt > 3:
             motor.setSpeed(10, 10)
             break
-    motor.setSpeed(0, 0)
-    time.sleep(2)
+    #motor.setSpeed(0, 0)
+    #time.sleep(2)
     # fence up detect
     print('[Info] stage 4 <fence up detect>: ', time.time() - run_start_time)
     fence_up_cnt = 0
@@ -389,8 +390,8 @@ if stage == 4:
         if fence_up_cnt > 10:
             motor.setSpeed(100, 100)
             break
-    motor.setSpeed(0, 0)
-    time.sleep(2)
+    #motor.setSpeed(0, 0)
+    #time.sleep(2)
     # final trace:
     print('[Info] stage 4 <final>: ', time.time() - run_start_time)
     final_start = time.time()
@@ -400,9 +401,6 @@ if stage == 4:
         closest = lidar.get_closest_filt(30, 90, False)
         if time.time() - final_start > 10:
             break
-        
-
-
     print('[Stage] end stage 4: ', time.time() - run_start_time)
     stage = 5
 

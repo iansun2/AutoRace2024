@@ -14,7 +14,7 @@ import camera as cam
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 柵欄,    5: 黑箱
-stage = 2
+stage = 4
 
 
 
@@ -84,6 +84,7 @@ def HoughCircles():
 
     else:
         print('no look green light')
+        lidar.get_closest_filt(0, 90, False)
         pass
 
         
@@ -350,7 +351,7 @@ if stage == 4:
         set_motor(trace=trace, lidar=0, speed=250)
         #closest = lidar.get_closest_filt(265, 360, False)
         #if closest[0] < 450:
-        if time.time() - go_fence_start > 12:
+        if time.time() - go_fence_start > 14:
             break
     # fence down detect
     print('[Info] stage 4 <fence down detect>: ', time.time() - run_start_time)
@@ -396,17 +397,18 @@ if stage == 4:
     while 1:
         trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.5) # two line
         set_motor(trace=trace, lidar=0, speed=200)
-        if time.time() - final_start > 26:
+        if time.time() - final_start > 27:
             closest = lidar.get_closest_filt(30, 90, False)
-            if closest[0] < 100:
+            if closest[0] < 150:
                 motor.goDist(160, 200)
-                closest = lidar.get_closest_filt(80, 100, False)
-                print('cloest0', closest)
-                delta = 90 - closest[1]
-                print('delta0', delta)
-                motor.goRotate(delta, 30)
+                break
+                # closest = lidar.get_closest_filt(80, 100, False)
+                # print('cloest0', closest)
+                # delta = 90 - closest[1]
+                # print('delta0', delta)
+                # motor.goRotate(delta, 30)
 
-            break
+            
     print('[Stage] end stage 4: ', time.time() - run_start_time)
     stage = 5
 
@@ -415,14 +417,25 @@ if stage == 4:
 ########[黑箱]########
 if stage == 5:
     print('[Stage] start stage 5: ', time.time() - run_start_time)
-    motor.setSpeed(200,200)
+    #motor.setSpeed(100,100)
+    dist_to_wall = 200
+    speed = 100
+    kp = 2
     while 1:
-        closest = lidar.get_closest_filt(10, 350, True)
-        if closest[0] < 160:
-            motor.goDist(160, 200)
+        closest = lidar.get_closest_filt(0, 90, False)
+        error = kp * (dist_to_wall - closest[0])
+        if error > 0:
+            error = min(200, error)
+        else:
+            error = max(-200, error)
+        #print(error)
+        motor.setSpeed(speed - error, speed + error)
+        closest_front = lidar.get_closest_filt(5, 355, True)
+        if closest_front[0] > 2500:
+            motor.setSpeed(100, 100)
+            print('strait')
             break
-    motor.goRotate(-90, 100)
-    motor.goDist(3000, 200)
+    
 
     # while 1:
     #     closest_F = lidar.get_closest_filt(30, 330, True)

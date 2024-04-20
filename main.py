@@ -14,7 +14,7 @@ import camera as cam
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 柵欄,    5: 黑箱
-stage = 0
+stage = 1
 
 
 
@@ -280,7 +280,7 @@ if stage == 3:
     print('[Info] stage 3 <get close>: ', time.time() - run_start_time)
     left_trace_start = time.time()
     while 1:
-        trace = get_trace(trace_mode=-1, sl_dist=(200, 0), sl_kp=(2.5, 0), tl_kp=0) # left line
+        trace = get_trace(trace_mode=-1, sl_dist=(180, 0), sl_kp=(2.5, 0), tl_kp=0) # left line
         set_motor(trace=trace, lidar=0, speed=200)
         closest = lidar.get_closest_filt(45, 315, True)
         print(closest)
@@ -319,19 +319,19 @@ if stage == 3:
         park_dist = 250
         park_speed = 150
         print("left full")
-        motor.goRotate(-90, park_speed)
+        motor.goRotate(-85, park_speed)
         motor.goDist(-park_dist, park_speed)
         time.sleep(1)
         print("leave slot")
         motor.goDist(park_dist, park_speed)
-        motor.goRotate(-85, park_speed)
+        motor.goRotate(-90, park_speed)
     # go to line
     motor.goDist(200, 200)
     # left trace to stage 4
     left_trace_start = time.time()
     while 1:
         trace = get_trace(trace_mode=-1, sl_dist=(200, 0), sl_kp=(2.5, 0), tl_kp=0) # left line
-        set_motor(trace=trace, lidar=0, speed=200)
+        set_motor(trace=trace, lidar=0, speed=250)
         if time.time() - left_trace_start > 6: # trace 5 sec
             break
         
@@ -351,7 +351,7 @@ if stage == 4:
         set_motor(trace=trace, lidar=0, speed=250)
         #closest = lidar.get_closest_filt(265, 360, False)
         #if closest[0] < 450:
-        if time.time() - go_fence_start > 13:
+        if time.time() - go_fence_start > 12:
             break
     # fence down detect
     print('[Info] stage 4 <fence down detect>: ', time.time() - run_start_time)
@@ -368,7 +368,7 @@ if stage == 4:
         if fence == -1:
             fence_down_cnt += 1
         if fence_down_cnt > 3:
-            motor.setSpeed(10, 10)
+            motor.setSpeed(30, 30)
             break
     #motor.setSpeed(0, 0)
     #time.sleep(2)
@@ -387,7 +387,7 @@ if stage == 4:
         if fence != -1:
             fence_up_cnt += 1
         if fence_up_cnt > 10:
-            motor.setSpeed(100, 100)
+            motor.setSpeed(200, 200)
             break
     #motor.setSpeed(0, 0)
     #time.sleep(2)
@@ -434,11 +434,20 @@ if stage == 5:
             p = max(-200, p)
         last_p = p
         sum = p + d
-        print('p:', p, ' /d:', d, ' /sum:', sum)
+        #print('p:', p, ' /d:', d, ' /sum:', sum)
         motor.setSpeed(speed - sum, speed + sum)
-        closest = lidar.get_closest_filt(10, 35, False)
+        closest = lidar.get_closest_filt(15, 35, False)
+        # find exit
         if closest[0] > 2500:
-            motor.goRotate(90, 100)
+            motor.setSpeed(0, 0)
+            offset = 0
+            # get rotate offset
+            for i in range(3):
+                time.sleep(0.5)
+                offset += lidar.get_closest_filt(70, 110, False)[1]
+            offset /= 3
+            print('offset:', offset)
+            motor.goRotate(offset, 100)
             motor.setSpeed(100, 100)
             while 1:
                 closest_front = lidar.get_closest_filt(5, 355, True)
@@ -449,9 +458,13 @@ if stage == 5:
             print('strait')
             break
     # exit
+    last_print_time = time.time()
     while 1:
         trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.5) # two line
         set_motor(trace=trace, lidar=0, speed=200)
+        if time.time() - last_print_time > 0.2:
+            print('time:', time.time() - run_start_time)
+            last_print_time = time.time()
     
 
     # while 1:

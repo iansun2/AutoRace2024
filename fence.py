@@ -110,7 +110,7 @@ def fence_detect(frame: cv2.UMat):
     # 1: up, 0: none, -1: down
     status = 0
 
-    if len(valid_objs) > 0:
+    if len(valid_objs) > 2:
         data = []
         for obj in valid_objs:
             data.append(obj['center'])
@@ -122,7 +122,7 @@ def fence_detect(frame: cv2.UMat):
 
         linear_model = np.polyfit(data[0], data[1], 1)
         linear_model_fn = np.poly1d(linear_model)
-        #print("linear: ", linear_model_fn)
+        print("linear: ", linear_model_fn)
         # x_s = np.arange(0, 500)
         # y_s = linear_model_fn(x_s)
         # plt.plot(x_s, y_s, color="green")

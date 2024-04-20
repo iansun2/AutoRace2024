@@ -353,34 +353,44 @@ if stage == 4:
         #if closest[0] < 450:
         if time.time() - go_fence_start > 12:
             break
-        
     # fence down detect
     print('[Info] stage 4 <fence down detect>: ', time.time() - run_start_time)
+    fence_down_cnt = 0
     while 1:
         trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1) # two line
         set_motor(trace=trace, lidar=0, speed=50)
         ret, fc_frame = cam.get_camera()
         fence, fc_debug_img = fc.fence_detect(fc_frame)
-        filted_fc = fc.fence_filt(fence)
         cv2.imshow('Fence', fc_debug_img)
         key = cv2.waitKey(2) & 0xFF
-        if filted_fc == -1:
-            motor.setSpeed(20, 20)
+        #print(fence)
+        print(fence_down_cnt)
+        if fence == -1:
+            fence_down_cnt += 1
+        if fence_down_cnt > 3:
+            motor.setSpeed(10, 10)
             break
-        
+    motor.setSpeed(0, 0)
+    time.sleep(2)
     # fence up detect
     print('[Info] stage 4 <fence up detect>: ', time.time() - run_start_time)
+    fence_up_cnt = 0
     while 1:
-        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=0.5) # two line
-        set_motor(trace=trace, lidar=0, speed=10)
+        trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=0.7) # two line
+        set_motor(trace=trace, lidar=0, speed=30)
         ret, fc_frame = cam.get_camera()
         fence, fc_debug_img = fc.fence_detect(fc_frame)
-        filted_fc = fc.fence_filt(fence)
         cv2.imshow('Fence', fc_debug_img)
         key = cv2.waitKey(2) & 0xFF
-        if filted_fc != -1:
+        #print(fence)
+        print(fence_up_cnt)
+        if fence != -1:
+            fence_up_cnt += 1
+        if fence_up_cnt > 10:
+            motor.setSpeed(100, 100)
             break
-        
+    motor.setSpeed(0, 0)
+    time.sleep(2)
     # final trace:
     print('[Info] stage 4 <final>: ', time.time() - run_start_time)
     final_start = time.time()

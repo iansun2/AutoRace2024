@@ -14,7 +14,7 @@ import camera as cam
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 柵欄,    5: 黑箱
-stage = 4
+stage = 0
 
 
 
@@ -62,7 +62,7 @@ def HoughCircles():
     kernel = np.ones((2,2),np.uint8)
     gradient = cv2.morphologyEx(canny, cv2.MORPH_GRADIENT, kernel)
     #霍夫變換圓檢測
-    circles= cv2.HoughCircles(gradient,cv2.HOUGH_GRADIENT,1,20,param1=45,param2=20,minRadius=1,maxRadius=80)
+    circles= cv2.HoughCircles(gradient,cv2.HOUGH_GRADIENT,1,20,param1=45,param2=10,minRadius=1,maxRadius=100)
 
     
     final_img = img.copy()
@@ -324,15 +324,15 @@ if stage == 3:
         time.sleep(1)
         print("leave slot")
         motor.goDist(park_dist, park_speed)
-        motor.goRotate(-90, park_speed)
+        motor.goRotate(-85, park_speed)
     # go to line
-    motor.goDist(150, 150)
+    motor.goDist(200, 200)
     # left trace to stage 4
     left_trace_start = time.time()
     while 1:
-        trace = get_trace(trace_mode=-1, sl_dist=(200, 0), sl_kp=(2, 0), tl_kp=0) # left line
-        set_motor(trace=trace, lidar=0, speed=150)
-        if time.time() - left_trace_start > 10: # trace 5 sec
+        trace = get_trace(trace_mode=-1, sl_dist=(200, 0), sl_kp=(2.5, 0), tl_kp=0) # left line
+        set_motor(trace=trace, lidar=0, speed=200)
+        if time.time() - left_trace_start > 6: # trace 5 sec
             break
         
     print('[Stage] end stage 3: ', time.time() - run_start_time)
@@ -351,7 +351,7 @@ if stage == 4:
         set_motor(trace=trace, lidar=0, speed=250)
         #closest = lidar.get_closest_filt(265, 360, False)
         #if closest[0] < 450:
-        if time.time() - go_fence_start > 14:
+        if time.time() - go_fence_start > 13:
             break
     # fence down detect
     print('[Info] stage 4 <fence down detect>: ', time.time() - run_start_time)
@@ -396,8 +396,8 @@ if stage == 4:
     final_start = time.time()
     while 1:
         trace = get_trace(trace_mode=0, sl_dist=(0, 0), sl_kp=(0, 0), tl_kp=1.5) # two line
-        set_motor(trace=trace, lidar=0, speed=200)
-        if time.time() - final_start > 27:
+        set_motor(trace=trace, lidar=0, speed=250)
+        if time.time() - final_start > 20:
             closest = lidar.get_closest_filt(30, 90, False)
             if closest[0] < 150:
                 motor.goDist(160, 200)
@@ -418,14 +418,14 @@ if stage == 4:
 if stage == 5:
     print('[Stage] start stage 5: ', time.time() - run_start_time)
     #motor.setSpeed(100,100)
-    dist_to_wall = 200
-    speed = 100
-    kp = 2
-    kd = 0.5
+    dist_to_wall = 300
+    speed = 150
+    kp = 1
+    kd = 0.0
     last_p = 0
     # trace lidar wall
     while 1:
-        closest = lidar.get_closest_filt(0, 90, False)
+        closest = lidar.get_closest_filt(80, 330, True)
         p = kp * (dist_to_wall - closest[0])
         d = kd * (p - last_p)
         if p > 0:
@@ -436,9 +436,16 @@ if stage == 5:
         sum = p + d
         print('p:', p, ' /d:', d, ' /sum:', sum)
         motor.setSpeed(speed - sum, speed + sum)
-        closest_front = lidar.get_closest_filt(30, 330, True)
-        if closest_front[0] > 2500:
-            motor.goDist(100, 100)
+        closest = lidar.get_closest_filt(10, 35, False)
+        if closest[0] > 2500:
+            motor.goRotate(90, 100)
+            motor.setSpeed(100, 100)
+            while 1:
+                closest_front = lidar.get_closest_filt(5, 355, True)
+                if closest_front[0] < 200:
+                    motor.goRotate(-90, 100)
+                    motor.goDist(250, 100)
+                    break
             print('strait')
             break
     # exit
@@ -472,3 +479,4 @@ while 1:
 
 cv2.destroyAllWindows()
 motor.setSpeed(0, 0)
+200

@@ -62,7 +62,7 @@ def HoughCircles():
     kernel = np.ones((2,2),np.uint8)
     gradient = cv2.morphologyEx(canny, cv2.MORPH_GRADIENT, kernel)
     #霍夫變換圓檢測
-    circles= cv2.HoughCircles(gradient,cv2.HOUGH_GRADIENT,1,20,param1=45,param2=10,minRadius=1,maxRadius=100)
+    circles= cv2.HoughCircles(gradient,cv2.HOUGH_GRADIENT,1,20,param1=45,param2=10,minRadius=4,maxRadius=100)
 
     
     final_img = img.copy()
@@ -161,15 +161,17 @@ print('run start')
 
 ########[等待紅綠燈]########
 if stage == 0:
+    cnt = 0
     print('[Stage] start stage 0: ', time.time() - run_start_time)
     while True:
         look_green = HoughCircles()
         #time.sleep(0.2)
         if look_green == 1:
-            print('pass')
-            #time.sleep(7)
+            cnt += 1
+            print('green')
+        if cnt > 5:
+            print('go')
             break
-            pass
     motor.setSpeed(100, 100)
     print('[Stage] end stage 0: ', time.time() - run_start_time)
     stage = 1

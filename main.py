@@ -191,7 +191,7 @@ if stage == 1:
     print('[Info] stage 1 <fork>: ', time.time() - run_start_time)
     # wait camera stable
     set_motor(trace=0, lidar=0, speed=0) # stop motor
-    time.sleep(1) # wait 1 sec to stable
+    time.sleep(0.3) # wait 1 sec to stable
     # look sign direction
     img_cnt = 0
     dir_samples = [0, 0, 0] # left none right
@@ -228,7 +228,7 @@ if stage == 1:
     # most right:
     else:
         print('[Info] stage 1 dir Right')
-        motor.goDist(100, 180)
+        motor.goDist(150, 180)
         motor.goRotate(45, 100)
         motor.setSpeed(200, 200)
         go_dir_time = time.time()
@@ -445,7 +445,7 @@ if stage == 5:
                 count += 1
         print('exit count:', count)
         # find exit
-        if count > 20:
+        if count > 15:
             motor.setSpeed(0, 0)
             offset = 0
             # get rotate offset

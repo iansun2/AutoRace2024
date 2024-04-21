@@ -131,7 +131,7 @@ def direction_detect(frame: cv2.UMat):
     #print('arc length valid: ', len(valid_obj))
 
     valid_obj = filt_by_points(valid_obj, debug_img)
-    #print('point count valid: ', len(valid_obj))
+    print('point count valid: ', len(valid_obj))
 
     valid_obj = select_smallest(valid_obj)
     if(valid_obj == {}):
@@ -147,21 +147,24 @@ def direction_detect(frame: cv2.UMat):
     rightest = np.array([-10000, 0])
     for point in hull:
         point = np.array(point[0])
+        #print('point:', point)
         if point[1] < highest[1]:
             highest = point
-        elif  point[1] > lowest[1]:
+        if  point[1] > lowest[1]:
             lowest = point
+        #print('highest:', highest)
+        #print('lowest:', lowest)
 
         if point[0] < leftest[0]:
             leftest = point
-        elif point[0] > rightest[0]:
+        if point[0] > rightest[0]:
             rightest = point
 
         cv2.circle(debug_img, (point[0], point[1]), radius=3, color=(0, 255, 255), thickness=3)
 
     cv2.circle(debug_img, (highest[0], highest[1]), radius=5, color=(0, 0, 0), thickness=3)
     cv2.circle(debug_img, (lowest[0], lowest[1]), radius=5, color=(100, 100, 100), thickness=3)
-    if abs(highest[1] - lowest[1]) < 60:
+    if abs(highest[1] - lowest[1]) < 80:
         dir = 0
     elif highest[0] < lowest[0]:
         #print("left")

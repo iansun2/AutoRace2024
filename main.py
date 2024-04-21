@@ -388,7 +388,7 @@ if stage == 4:
         print(fence_up_cnt)
         if fence != -1:
             fence_up_cnt += 1
-        if fence_up_cnt > 15: # 20 samples match, exit
+        if fence_up_cnt > 5: # 20 samples match, exit
             motor.setSpeed(200, 200)
             break
     #motor.setSpeed(0, 0)
@@ -445,7 +445,7 @@ if stage == 5:
                 count += 1
         print('exit count:', count)
         # find exit
-        if count > 15:
+        if count > 17:
             motor.setSpeed(0, 0)
             offset = 0
             # get rotate offset

@@ -14,7 +14,7 @@ import camera as cam
 # Stage
 # 0: 紅綠燈, 1: 左右路口, 2: 避障
 # 3: 停車,   4: 柵欄,    5: 黑箱
-stage = 1
+stage = 0
 
 
 
@@ -262,7 +262,7 @@ if stage == 2:
         #exit_lidar_val = lidar.get_closest_filt(90, 360, False)
         exit_lidar_val = lidar.get_closest()
         #print(exit_lidar_val)
-        if exit_lidar_val[0] > 350 and time.time() - avoidance_start > 10: # init lock 10 sec
+        if exit_lidar_val[0] > 300 and time.time() - avoidance_start > 10: # init lock 10 sec
             print('exit cnt++: ', exit_cnt)
             exit_cnt += 1
         if exit_cnt > 5: # exit need 5 count
@@ -386,7 +386,7 @@ if stage == 4:
         print(fence_up_cnt)
         if fence != -1:
             fence_up_cnt += 1
-        if fence_up_cnt > 10:
+        if fence_up_cnt > 20: # 20 samples match
             motor.setSpeed(200, 200)
             break
     #motor.setSpeed(0, 0)

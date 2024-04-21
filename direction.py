@@ -59,7 +59,7 @@ def filt_by_arc_length(contours) -> list:
         arc_len = cv2.arcLength(contour, True)
         #print("arc len: ", arc_len)
         #cv2.waitKey(0)
-        if arc_len < 100:
+        if arc_len < 300:
             continue
         valid = True
         for exist_obj in valid_objs:

@@ -7,10 +7,10 @@ import camera as cam
 debug = False
 
 
-low_mask = np.array([0, 140, 100])
+low_mask = np.array([0, 140, 70])
 high_mask = np.array([15, 255, 255])
 
-low_mask2 = np.array([160, 140, 100])
+low_mask2 = np.array([160, 140, 70])
 high_mask2 = np.array([180, 255, 255])
 
 

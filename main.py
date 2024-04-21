@@ -386,7 +386,7 @@ if stage == 4:
         print(fence_up_cnt)
         if fence != -1:
             fence_up_cnt += 1
-        if fence_up_cnt > 20: # 20 samples match
+        if fence_up_cnt > 15: # 20 samples match, exit
             motor.setSpeed(200, 200)
             break
     #motor.setSpeed(0, 0)
@@ -436,9 +436,14 @@ if stage == 5:
         sum = p + d
         #print('p:', p, ' /d:', d, ' /sum:', sum)
         motor.setSpeed(speed - sum, speed + sum)
-        closest = lidar.get_closest_filt(15, 35, False)
+        lidar_data = lidar.get_angle_data()
+        count = 0
+        for data in lidar_data:
+            if (data[0] < 50 or data[0] > 310) and data[1] > 2500:
+                count += 1
+        print('exit count:', count)
         # find exit
-        if closest[0] > 2500:
+        if count > 20:
             motor.setSpeed(0, 0)
             offset = 0
             # get rotate offset
